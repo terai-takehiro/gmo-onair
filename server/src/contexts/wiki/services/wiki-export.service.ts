@@ -38,8 +38,6 @@ import { canReadPage, type WikiUser } from './wiki-access.service';
 const MAX_EXPORT_PAGES = 2000;
 /** 同梱する画像の合計。超えたら止めます（zip をメモリで作るため） */
 const MAX_EXPORT_FILE_BYTES = 100 * 1024 * 1024;
-/** 親をたどる深さの上限（`wiki-path.service.ts` と同じ）。取り違えで無限に回るのを止める */
-const MAX_DEPTH = 20;
 
 const PAGE_SELECT = `
   SELECT p.id, p.parent_id, p.sort_order, p.title, p.body_md, p.status, p.kind,
@@ -52,15 +50,19 @@ const PAGE_SELECT = `
    ORDER BY p.sort_order, p.title
 `;
 
-/** 同じフォルダの中で名前がぶつかったら id を足す（上書きで1枚消えるのを防ぐ） */
-function uniqueName(used: Set<string>, base: string, id: string): string {
-  if (!used.has(base)) {
-    used.add(base);
-    return base;
-  }
-  const withId = `${base} (${id})`;
-  used.add(withId);
-  return withId;
+/**
+ * 同じフォルダの中で名前がぶつかったら id を足す（上書きで1枚消えるのを防ぐ）。
+ *
+ * ⚠️ **id を足した名前も、もう一度ぶつからないか確かめます**（#730 の Codex 指摘・P2）。
+ * 「Report」が2枚と、たまたま「Report (wp-…)」という題のページが並ぶと、足した名前が
+ * 既にある名前と同じになり、JSZip の後勝ちで1枚が zip から消えていました。
+ * ぶつかる限り番号を足していきます。
+ */
+export function uniqueName(used: Set<string>, base: string, id: string): string {
+  let name = used.has(base) ? `${base} (${id})` : base;
+  for (let n = 2; used.has(name); n += 1) name = `${base} (${id}) ${n}`;
+  used.add(name);
+  return name;
 }
 
 /**
@@ -197,9 +199,18 @@ export async function exportSpaceZip(user: WikiUser, spaceKey: string): Promise<
   };
 
   /** ページ1枚を書く。データベースならフォルダに `_database.md` と一覧も置く */
-  const writePage = (page: Row, dir: string, used: Set<string>, depth: number): void => {
-    collectFiles(page);
+  /*
+   * ⚠️ **深さでは打ち切りません**（#730 の Codex 指摘・P2）。20段で止めていたころは、
+   * 21段目より下のページが README の件数には入っているのに zip に入らず、取り込み直すと
+   * 黙って消えていました（ページの作成・移動は深さを制限していない）。無限に回るのを
+   * 止めるのは「一度書いたページはもう書かない」印（`written`）で行います。
+   */
+  const written = new Set<string>();
+  const writePage = (page: Row, dir: string, used: Set<string>): void => {
     const id = String(page.id);
+    if (written.has(id)) return;
+    written.add(id);
+    collectFiles(page);
     const children = byParent.get(id) ?? [];
     const base = safeSegment(String(page.title ?? '')) || id;
 
@@ -211,9 +222,9 @@ export async function exportSpaceZip(user: WikiUser, spaceKey: string): Promise<
 
     const name = uniqueName(used, base, id);
     zip.file(`${dir}${name}.md`, pageToMarkdown(page));
-    if (children.length === 0 || depth >= MAX_DEPTH) return;
+    if (children.length === 0) return;
     const childUsed = new Set<string>();
-    for (const child of children) writePage(child, `${dir}${name}/`, childUsed, depth + 1);
+    for (const child of children) writePage(child, `${dir}${name}/`, childUsed);
   };
 
   /*
@@ -224,7 +235,7 @@ export async function exportSpaceZip(user: WikiUser, spaceKey: string): Promise<
    * （Codex の指摘・P1）。押さえておけば `README (wp-xxxx)` になって逃げます。
    */
   const rootUsed = new Set<string>(['README']);
-  for (const page of byParent.get('') ?? []) writePage(page, '', rootUsed, 0);
+  for (const page of byParent.get('') ?? []) writePage(page, '', rootUsed);
 
   // データベース（項目とビューは別の表にあるので、ここで1件ずつ引く）
   for (const job of databaseJobs) {
@@ -248,7 +259,7 @@ export async function exportSpaceZip(user: WikiUser, spaceKey: string): Promise<
     const used = new Set<string>(['_database', '_index']);
 
     // 入れ子のデータベースは `writePage` に任せる（新しい仕事が下の輪に積まれる）
-    for (const nested of nestedDatabases) writePage(nested, job.dir, used, 1);
+    for (const nested of nestedDatabases) writePage(nested, job.dir, used);
 
     for (const row of plainRows) {
       collectFiles(row);
@@ -264,7 +275,7 @@ export async function exportSpaceZip(user: WikiUser, spaceKey: string): Promise<
       if (grandChildren.length === 0) continue;
       const rowUsed = new Set<string>();
       for (const child of grandChildren) {
-        writePage(child, `${job.dir}${name}/`, rowUsed, 1);
+        writePage(child, `${job.dir}${name}/`, rowUsed);
       }
     }
   }

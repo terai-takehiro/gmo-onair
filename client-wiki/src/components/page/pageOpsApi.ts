@@ -35,8 +35,8 @@ export const WIKI_OPS_URL = {
   makeTemplate: (id: string) => `/wiki/pages/${id}/make-template`,
   /** お気に入り（`POST` で入れる・`DELETE` で外す。人ごとの印） */
   favorite: (id: string) => `/wiki/pages/${id}/favorite`,
-  /** 担当に選べる人（`server/src/contexts/platform/routes/auth.routes.ts`） */
-  users: '/users',
+  /** 人の一覧（`server/src/contexts/wiki/routes/spaces.routes.ts`・上限なし。`/users` は100人で切るので使わない） */
+  users: '/wiki/users',
 } as const;
 
 export const wikiOpsKeys = {
@@ -204,7 +204,7 @@ export function useOnairUsers(enabled = true) {
     queryKey: wikiOpsKeys.users(),
     enabled,
     queryFn: async ({ signal }) =>
-      unwrap<WikiUserBrief[]>(await api.get(WIKI_OPS_URL.users, { signal, params: { limit: 200 } })),
+      unwrap<WikiUserBrief[]>(await api.get(WIKI_OPS_URL.users, { signal })),
     staleTime: 5 * 60_000,
   });
 }

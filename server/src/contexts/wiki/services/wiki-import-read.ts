@@ -25,6 +25,33 @@ export const MAX_TOTAL_BYTES = 300 * 1024 * 1024;
 
 const TOO_BIG = '中身が大きすぎます。フォルダを分けてからお試しください。';
 
+/**
+ * zip に入っているファイル（とフォルダ）の数の上限。ページの上限（1,000）＋画像を見込んだ値。
+ *
+ * ⚠️ **JSZip に渡す前に、目次の終わり（EOCD）の件数で断ります**（#730 の Codex 指摘・P1）。
+ * 50MB の zip でも空のファイルを数十万件並べられ、`JSZip.loadAsync` は**その全部を
+ * 先にメモリへ並べてから**返すので、ページ数や解いた大きさを数える前に山と CPU が尽きます。
+ * 件数は zip の末尾22バイト＋コメントの中にあるので、中身を読まずに分かります。
+ * zip64（件数が 0xFFFF）はそれだけで上限を超えているので断ります。
+ * 目次の終わりが見つからないときは何もしません（壊れた zip は JSZip が断る）。
+ */
+export const MAX_ZIP_ENTRIES = 10_000;
+
+export function assertZipEntryCount(buffer: Buffer): void {
+  const EOCD = 0x06054b50;
+  const from = Math.max(0, buffer.length - (0xffff + 22));
+  for (let i = buffer.length - 22; i >= from; i -= 1) {
+    if (buffer.readUInt32LE(i) !== EOCD) continue;
+    const entries = buffer.readUInt16LE(i + 10);
+    if (entries > MAX_ZIP_ENTRIES) {
+      throw new ValidationError(
+        `zip の中のファイルが多すぎます（${MAX_ZIP_ENTRIES.toLocaleString()}件まで）。フォルダを分けてからお試しください。`,
+      );
+    }
+    return;
+  }
+}
+
 /** 解いた大きさを数えながら zip を読む。**1回の取り込みに1つ**作って使い回す */
 export class ZipReader {
   private total = 0;
