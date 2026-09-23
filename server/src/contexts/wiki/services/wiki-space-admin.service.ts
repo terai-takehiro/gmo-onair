@@ -344,13 +344,27 @@ export async function addSpaceMember(user: WikiUser, spaceId: string, userId: st
  *   - **自分**（外した瞬間にこのスペースが見えなくなり、戻せなくなる。system_admin は除く）
  */
 export async function removeSpaceMember(user: WikiUser, spaceId: string, userId: string): Promise<Row[]> {
-  const space = await assertManageableSpace(user, spaceId);
-  if (space.visibility === 'members' && space.owner_user_id === userId) {
-    throw new ValidationError('担当はメンバーから外せません。先に担当を別の人に変えてください。');
-  }
-  if (space.visibility === 'members' && userId === user.id && user.role !== 'system_admin') {
-    throw new ValidationError('自分をメンバーから外すと、このスペースが見えなくなります。別の管理者に依頼してください。');
-  }
-  await execute('DELETE FROM wiki_space_members WHERE space_id = ? AND user_id = ?', [spaceId, userId]);
+  await assertManageableSpace(user, spaceId);
+  /*
+   * ⚠️ **担当かどうかは、スペースの行を `FOR UPDATE` で押さえてから見ます**（#740 の Codex 指摘・P2）。
+   * 押さえずに見ていたころは、1人が Y を担当にする（`updateSpace` が Y をメンバーに入れる）のと
+   * 同時に別の人が Y を外すと、外す側が古い担当を読んで検査を通り、担当の保存が終わったあとで
+   * Y の行を消していました（担当なのに読めない＝通知が使えない）。`updateSpace` も同じ行を
+   * `FOR UPDATE` で押さえるので、どちらかが必ず待ち、あとの側は新しい担当を見て判断します。
+   */
+  await withTransaction(async (tx) => {
+    const space = await tx.queryOne(
+      'SELECT visibility, owner_user_id FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+      [spaceId],
+    );
+    if (!space) throw new NotFoundError('スペースが見つかりません');
+    if (space.visibility === 'members' && space.owner_user_id === userId) {
+      throw new ValidationError('担当はメンバーから外せません。先に担当を別の人に変えてください。');
+    }
+    if (space.visibility === 'members' && userId === user.id && user.role !== 'system_admin') {
+      throw new ValidationError('自分をメンバーから外すと、このスペースが見えなくなります。別の管理者に依頼してください。');
+    }
+    await tx.execute('DELETE FROM wiki_space_members WHERE space_id = ? AND user_id = ?', [spaceId, userId]);
+  });
   return listSpaceMembers(user, spaceId);
 }

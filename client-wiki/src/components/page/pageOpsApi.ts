@@ -197,6 +197,22 @@ export interface WikiUserBrief {
   id: string;
   name: string;
   email?: string;
+  /** 在籍中か。停止・招待中の人は、名前は引けるが**選ぶ候補には出さない**（`pickableUsers`） */
+  active?: boolean;
+}
+
+/**
+ * 担当・人の項目で**選べる**人。在籍中の人と、いま入っている値（`keep`）だけです。
+ *
+ * ⚠️ `/wiki/users` は名前を引くために停止・招待中の人も返します。その全員を候補に
+ * 並べると、ログインできない人・通知の届かない人を担当に選べてしまいます（#740 の Codex 指摘）。
+ * 名前を引く（表示）ときは絞らない一覧を、選ぶ（候補）ときはこれを使います。
+ */
+export function pickableUsers<T extends { id: string; active?: boolean }>(
+  users: T[] | undefined,
+  keep: Array<string | null | undefined> = [],
+): T[] {
+  return (users ?? []).filter((u) => u.active !== false || keep.includes(u.id));
 }
 
 export function useOnairUsers(enabled = true) {

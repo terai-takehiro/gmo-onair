@@ -28,27 +28,47 @@ const TOO_BIG = '中身が大きすぎます。フォルダを分けてからお
 /**
  * zip に入っているファイル（とフォルダ）の数の上限。ページの上限（1,000）＋画像を見込んだ値。
  *
- * ⚠️ **JSZip に渡す前に、目次の終わり（EOCD）の件数で断ります**（#730 の Codex 指摘・P1）。
+ * ⚠️ **JSZip に渡す前に、目次（central directory）の記録を実際に数えて断ります**（#730・#740 の Codex 指摘・P1）。
  * 50MB の zip でも空のファイルを数十万件並べられ、`JSZip.loadAsync` は**その全部を
  * 先にメモリへ並べてから**返すので、ページ数や解いた大きさを数える前に山と CPU が尽きます。
- * 件数は zip の末尾22バイト＋コメントの中にあるので、中身を読まずに分かります。
- * zip64（件数が 0xFFFF）はそれだけで上限を超えているので断ります。
+ *
+ * ⚠️ **目次の終わり（EOCD）に書いてある件数だけを信じないこと。** 件数は小さく書けるのに、
+ * JSZip は件数ではなく**目次の記録が続く限り**読み進めます（食い違いも許す）。だから
+ * EOCD から目次の始まりを引き、記録の印（`PK\x01\x02`）が続く限り1件ずつ数えます。
+ * 件数も場所も中身を解かずに分かるので、軽いまま止められます。
+ * zip64（件数・場所が 0xFFFF / 0xFFFFFFFF）は、それだけで上限を超えているので断ります。
  * 目次の終わりが見つからないときは何もしません（壊れた zip は JSZip が断る）。
  */
 export const MAX_ZIP_ENTRIES = 10_000;
 
+const TOO_MANY = `zip の中のファイルが多すぎます（${MAX_ZIP_ENTRIES.toLocaleString()}件まで）。フォルダを分けてからお試しください。`;
+
 export function assertZipEntryCount(buffer: Buffer): void {
   const EOCD = 0x06054b50;
+  const RECORD = 0x02014b50;
   const from = Math.max(0, buffer.length - (0xffff + 22));
+  let eocd = -1;
   for (let i = buffer.length - 22; i >= from; i -= 1) {
-    if (buffer.readUInt32LE(i) !== EOCD) continue;
-    const entries = buffer.readUInt16LE(i + 10);
-    if (entries > MAX_ZIP_ENTRIES) {
-      throw new ValidationError(
-        `zip の中のファイルが多すぎます（${MAX_ZIP_ENTRIES.toLocaleString()}件まで）。フォルダを分けてからお試しください。`,
-      );
+    if (buffer.readUInt32LE(i) === EOCD) { eocd = i; break; }
+  }
+  if (eocd === -1) return;
+
+  const declared = buffer.readUInt16LE(eocd + 10);
+  const dirBytes = buffer.readUInt32LE(eocd + 12);
+  const dirAt = buffer.readUInt32LE(eocd + 16);
+  if (declared === 0xffff || dirBytes === 0xffffffff || dirAt === 0xffffffff || declared > MAX_ZIP_ENTRIES) {
+    throw new ValidationError(TOO_MANY);
+  }
+  // 先頭に余計なものが付いた zip（自己解凍など）は、目次が「終わり − 目次の大きさ」にある
+  const starts = [dirAt, eocd - dirBytes].filter((p, k, a) => p >= 0 && p < buffer.length && a.indexOf(p) === k);
+  for (const start of starts) {
+    let at = start;
+    let count = 0;
+    while (at + 46 <= buffer.length && buffer.readUInt32LE(at) === RECORD) {
+      count += 1;
+      if (count > MAX_ZIP_ENTRIES) throw new ValidationError(TOO_MANY);
+      at += 46 + buffer.readUInt16LE(at + 28) + buffer.readUInt16LE(at + 30) + buffer.readUInt16LE(at + 32);
     }
-    return;
   }
 }
 

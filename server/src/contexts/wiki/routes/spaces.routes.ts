@@ -26,9 +26,15 @@ const canRead = [requireAuth, requirePermission('wiki', 'reader')] as const;
  * 101人目以降が検索の「担当」・ページの担当・データベースの人の項目に**出ず、名前も
  * 引けませんでした**（#730 の Codex 指摘・P2）。停止・招待中の人も返すのは、
  * 既に入っている担当の名前を id のまま見せないためです（削除した人だけ除きます）。
+ *
+ * ⚠️ **その代わり `active` を付けて返し、画面は選ぶ候補からは外します**（#740 の Codex 指摘・P2）。
+ * 付けずに返していたころは、ログインできない人・通知の届かない人を担当に選べました。
+ * 選べるのは在籍中の人と、いま入っている値だけです（`pickableUsers`）。
  */
 router.get('/users', ...canRead, wrap(async (_req, res) => {
-  const rows = await queryAll('SELECT id, name FROM users WHERE deleted_at IS NULL ORDER BY name, id');
+  const rows = await queryAll(
+    "SELECT id, name, (status = 'active') AS active FROM users WHERE deleted_at IS NULL ORDER BY name, id",
+  );
   res.json({ success: true, data: rows });
 }));
 

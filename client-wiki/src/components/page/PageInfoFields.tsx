@@ -18,6 +18,7 @@ import type { WikiPage } from '@gmo-onair/shared/src/wiki/types';
 import { reviewByLabel, reviewRemainLabel } from '@/lib/wikiFormat';
 import {
   patchWikiPageInfo,
+  pickableUsers,
   useOnairUsers,
   useWikiRefresh,
   type WikiPageInfoInput,
@@ -70,7 +71,7 @@ export function OwnerField({ page, canEdit }: PageInfoEditProps) {
         && !(usersQ.data ?? []).some((u) => u.id === page.owner_user_id) && (
         <option value={page.owner_user_id}>{page.owner_name ?? page.owner_user_id}</option>
       )}
-      {(usersQ.data ?? []).map((u) => (
+      {pickableUsers(usersQ.data, [page.owner_user_id]).map((u) => (
         <option key={u.id} value={u.id}>{u.name}</option>
       ))}
     </select>

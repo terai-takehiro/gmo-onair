@@ -370,9 +370,21 @@ export async function setPageTemplate(
 }
 
 /** 担当に入れる人が実在するか（外部キー違反で 500 にしない） */
-export async function assertUserExists(userId: string): Promise<void> {
-  const row = await queryOne("SELECT 1 AS ok FROM users WHERE id = ? AND deleted_at IS NULL", [userId]);
-  if (!row) throw new ValidationError('担当に選んだ人が見つかりません。選び直してください。');
+/**
+ * 担当に選んでよい人か。
+ *
+ * ⚠️ **新しく選ぶときは在籍中（`status = 'active'`）の人だけ**です（#740 の Codex 指摘・P2）。
+ * 削除していないかだけを見ていたころは、停止・招待中の人を担当にでき、ログインできず
+ * 見直しの通知も届かない人に仕事が付いたままになりました。いまの担当のまま保存する
+ * ときは見ません（あとから停止された担当のページでも、ほかの欄の保存を断らないため）。
+ */
+export async function assertUserExists(userId: string, currentOwnerId: string | null = null): Promise<void> {
+  if (currentOwnerId && userId === currentOwnerId) return;
+  const row = await queryOne(
+    "SELECT 1 AS ok FROM users WHERE id = ? AND deleted_at IS NULL AND status = 'active'",
+    [userId],
+  );
+  if (!row) throw new ValidationError('担当に選んだ人が見つからないか、利用が止まっています。選び直してください。');
 }
 
 /** `PATCH /wiki/pages/:id` で親を変えるときも、作成・移動と同じ検査を通す */

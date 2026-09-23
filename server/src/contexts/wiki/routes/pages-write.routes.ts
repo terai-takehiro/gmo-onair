@@ -147,7 +147,11 @@ router.patch('/pages/:id', ...canEdit, wrap(async (req, res) => {
   await assertReadablePage(req.user!, pageId);
   const b = body(req);
   const input = readSaveInput(b);
-  if (input.owner_user_id) await assertUserExists(input.owner_user_id);
+  if (input.owner_user_id) {
+    // いまの担当のまま保存するときは、在籍中かを見ない（`assertUserExists` の注記）
+    const current = await selectPageRow(pageId);
+    await assertUserExists(input.owner_user_id, (current.owner_user_id as string | null) ?? null);
+  }
   if (input.parent_id !== undefined) await assertParentForSave(pageId, input.parent_id);
 
   /*
