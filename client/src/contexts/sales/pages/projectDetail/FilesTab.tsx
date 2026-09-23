@@ -31,6 +31,13 @@
  * 発注・請求・原価は社内。この画面でも**赤（社内）と緑（社外）で分けて出します**」。
  * 取り違えると原価が外に出るので、色と言葉の両方で分けます。
  *
+ * ── Wiki のページも「書類」に出す（2026-09-22・Wiki 段F） ────
+ *
+ * Wiki の本文から `[名前](/sales/projects/:id)` でこの案件にリンクしている
+ * ページを、BOX の下に並べます（`ProjectWikiPages`）。この案件の手順書・
+ * ルールは BOX のファイルと同じ「この案件の書類」なので、タブを増やさずに
+ * ここへ置きました。**関係するページが0件のときは何も出ません。**
+ *
  * ── スマホは iOS の一覧セル（v4ネイティブUI監査・この回） ──────
  *
  * 着手前は中身の一覧が PC もスマホも同じ `Row`（`stackOnMobile`）で、
@@ -51,6 +58,7 @@ import { notifySuccess, notifyApiError } from '@gmo-onair/shared/src/client/noti
 import { formatRelativeTime } from '@gmo-onair/shared/src/client/format';
 import { useAuth } from '@/contexts/platform/AuthContext';
 import { useIsMobile } from '@gmo-onair/shared/src/client-v4/mobile';
+import { ProjectWikiPages } from './ProjectWikiPages';
 import type { ProjectDetail } from './types';
 
 interface BoxItem {
@@ -341,6 +349,9 @@ export function FilesTab({ project }: { project: ProjectDetail }) {
           </Button>
         </div>
       )}
+
+      {/* この案件にリンクしている Wiki のページ（段F）。**0件なら何も出ません** */}
+      <ProjectWikiPages projectId={project.id} />
 
       <div className="flex items-start gap-2.5 rounded-note border border-primary-border bg-primary-surface-weak px-3.5 py-3">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />

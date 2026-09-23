@@ -11,7 +11,9 @@
  *     1本になり、共通メニューの「スペース」一覧とツリーの見出しで**同じものを2回
  *     出していた**のも解消した
  *  2. **右の情報パネルを開閉式にし、既定を閉じにした**。閉じている間は目次と情報を
- *     本文の下に続ける（読むのに要る情報ではないので、既定では本文に幅を譲る）
+ *     本文の下に続ける（読むのに要る情報ではないので、既定では本文に幅を譲る）。
+ *     段F で足した**コメント**も同じ並びに続ける — 右パネルを開けない幅でも
+ *     読めて、書けるようにするため（§6-⑧「コメントは書ける」）
  *
  * 結果、1440px の本文は 608px → **860px**（最大幅）になる。
  *
@@ -35,6 +37,7 @@ import WikiMarkdown from '@/components/wiki/WikiMarkdown';
 import WikiToc from '@/components/wiki/WikiToc';
 import WikiSpaceTreePanel from '@/components/layout/WikiSpaceTreePanel';
 import PageHeaderBar from './PageHeaderBar';
+import CommentPanel from '@/components/comment/CommentPanel';
 import PageInfoPanel from './PageInfoPanel';
 import PageInspector from './PageInspector';
 
@@ -177,6 +180,15 @@ export default function PageViewPage() {
               <section>
                 <h2 className="mb-2 text-cardtitle text-foreground">情報</h2>
                 <PageInfoPanel page={page} />
+              </section>
+              {/*
+                コメントも同じ並びに続ける（段F・§6-②）。**スマホでも書けます**
+                （§6-⑧）。右パネルの「コメント」タブと同じ鍵で読むので、
+                両方が出ている幅でも取りに行くのは1回です
+              */}
+              <section>
+                <h2 className="mb-2 text-cardtitle text-foreground">コメント</h2>
+                <CommentPanel pageId={page.id} />
               </section>
             </div>
           </div>
