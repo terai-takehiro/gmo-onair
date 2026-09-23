@@ -77,8 +77,16 @@ router.patch('/tech-panels/:id/jacks/:jackId', manager, wrap(async (req: Request
 // 取引先に仕入先として登録する（同じ名前があればそれを返す）。
 // ⚠️ 名前の変更・削除の口は持たない——取引先の編集は案件管理で行う。
 
-router.get('/tech-companies', wrap(async (_req, res) => {
-  res.json({ success: true, data: await listCompanies() });
+router.get('/tech-companies', wrap(async (req: Request, res: Response) => {
+  // `?include=<id>`（複数可）— 「会社を追加」で再利用した会社を、通常の絞り込みに
+  // 関わらず一覧へ出す（レビュー指摘。listCompanies のコメント参照）
+  const raw = req.query.include;
+  const includeIds = Array.isArray(raw)
+    ? raw.filter((v): v is string => typeof v === 'string')
+    : typeof raw === 'string' && raw
+      ? [raw]
+      : [];
+  res.json({ success: true, data: await listCompanies(includeIds) });
 }));
 
 router.post('/tech-companies', manager, wrap(async (req: Request, res: Response) => {

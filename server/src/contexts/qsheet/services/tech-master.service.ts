@@ -125,6 +125,8 @@ export async function createPanel(input: CreatePanelInput, userId: string): Prom
   const jackCount = Number(input.jack_count);
   if (jackCount !== 32 && jackCount !== 48) throw new ValidationError('ch数は 32 または 48 を選択してください');
   const kind = input.kind === 'trunk' ? 'trunk' : 'jack';
+  // TRK盤は TRK1〜32 の固定（一覧・盤の絵が「TRK 32」と決め打っている）。48chのTRK盤を作らせない
+  if (kind === 'trunk' && jackCount !== 32) throw new ValidationError('TRK の盤は 32ch です');
 
   const existing = await queryOne('SELECT id FROM qsheet_patch_panels WHERE name = $1', [name]);
   if (existing) throw new ValidationError('同じ名前のパッチ盤があります。別の名前を入力してください');
@@ -220,17 +222,23 @@ const COMPANY_SELECT = `
 /**
  * 技術人員の会社の候補（`TechCompany[]`）。**技術人員が1人以上いる会社、または仕入先**
  * （`is_vendor`）で、削除されていないもの。人数の多い順 → 名前順。
+ *
+ * `includeIds` は上の条件に関わらず必ず入れる会社の id（レビュー指摘）。**「会社を追加」で
+ * 顧客専用（`is_vendor=false`）・技術人員0人の取引先を再利用して返したとき**、この条件だけでは
+ * 一覧に出ず、画面が選べたはずの会社を選べなくなっていた。作った直後のクライアントが自分の id を
+ * `?include=` で渡し、その1件だけ例外的に出す（取引先の行自体は変えない）。
  */
-export async function listCompanies(): Promise<Row[]> {
+export async function listCompanies(includeIds: string[] = []): Promise<Row[]> {
   return queryAll(`
     SELECT * FROM (${COMPANY_SELECT}
       WHERE co.deleted_at IS NULL
         AND (co.is_vendor = TRUE
              OR EXISTS (SELECT 1 FROM qsheet_tech_persons p2
-                         WHERE p2.company_id = co.id AND p2.deleted_at IS NULL))
+                         WHERE p2.company_id = co.id AND p2.deleted_at IS NULL)
+             OR co.id = ANY($1::text[]))
     ) t
     ORDER BY t.person_count DESC, t.name
-  `);
+  `, [includeIds]);
 }
 
 async function getCompany(id: string): Promise<Row | undefined> {

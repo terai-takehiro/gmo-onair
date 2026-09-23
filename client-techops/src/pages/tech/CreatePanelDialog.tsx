@@ -1,6 +1,6 @@
 // ⑤ パッチ盤を1枚足すダイアログ（`TechPersonDialog.tsx` と同じ作法）。
 // `TechPanelsPage.tsx` の「盤を追加」から開く。manager 専用（呼び出し側で権限を確認済み）。
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FormDialog, FormDialogFooter } from "@gmo-onair/shared/src/client-v4/formDialog";
 import type { PatchPanelKind } from "@gmo-onair/shared/src/tech/types";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,15 @@ export function CreatePanelDialog({
   const [model, setModel] = useState("");
   const [saving, setSaving] = useState(false);
 
+  // ⚠️ `BufferedInput` は最大500msバッファしてから `onCommit` を呼ぶ（IME対策・
+  // `lib/useBufferedValue.ts`）。Enter送信はその途中でも起きるため、state (`name` 等)
+  // だけを読むと入力中の1文字が欠けたまま送信されてしまう。ref は `onCommit` から
+  // 同期的に書くので、フォーカス中の欄を明示的に blur（送信前に必ず行う）した直後は
+  // 必ず最新値が入っている。`save()` は state ではなく ref を読む
+  const nameRef = useRef(name);
+  const locationRef = useRef(location);
+  const modelRef = useRef(model);
+
   useEffect(() => {
     if (!open) return;
     setName("");
@@ -41,10 +50,16 @@ export function CreatePanelDialog({
     setLocation("");
     setModel("");
     setSaving(false);
+    nameRef.current = "";
+    locationRef.current = "";
+    modelRef.current = "";
   }, [open]);
 
   const save = async () => {
-    const trimmed = name.trim();
+    // 送信直前にフォーカス中の `BufferedInput` を確定させる（blur → 同期的に commit）。
+    // これをしないと、打ち終わった直後に Enter で送ったときだけ最後の入力が消える
+    (document.activeElement as HTMLElement | null)?.blur();
+    const trimmed = nameRef.current.trim();
     if (trimmed === "") {
       notifyError("盤の名前を入力してください。");
       return;
@@ -56,8 +71,8 @@ export function CreatePanelDialog({
         name: trimmed,
         jack_count: jackCount === "32" ? 32 : 48,
         kind,
-        location: location.trim(),
-        model: model.trim(),
+        location: locationRef.current.trim(),
+        model: modelRef.current.trim(),
       });
       if (ok) {
         onOpenChange(false);
@@ -94,7 +109,7 @@ export function CreatePanelDialog({
           <BufferedInput
             id="tech-panel-name"
             value={name}
-            onCommit={setName}
+            onCommit={(v) => { nameRef.current = v; setName(v); }}
             placeholder="例: VJP1900"
             className={fieldClass}
           />
@@ -104,14 +119,24 @@ export function CreatePanelDialog({
           <Select value={jackCount} onValueChange={(v) => setJackCount(v as "48" | "32")}>
             <SelectTrigger id="tech-panel-jack-count" className="min-h-tap"><SelectValue /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="48">48</SelectItem>
+              {/* TRK盤は TRK1〜32 の固定（一覧・盤の絵が「TRK 32」と決め打っている・
+                  `TechPanelsPage.tsx`/`TechPanelBoard.tsx`）。48chのTRK盤を作らせない */}
+              <SelectItem value="48" disabled={kind === "trunk"}>48</SelectItem>
               <SelectItem value="32">32</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="tech-panel-kind">種類</Label>
-          <Select value={kind} onValueChange={(v) => setKind(v as PatchPanelKind)}>
+          <Select
+            value={kind}
+            onValueChange={(v) => {
+              const nextKind = v as PatchPanelKind;
+              setKind(nextKind);
+              // TRKはch数を32に固定する（上のch数欄の「48」も同時に無効化する）
+              if (nextKind === "trunk") setJackCount("32");
+            }}
+          >
             <SelectTrigger id="tech-panel-kind" className="min-h-tap"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="jack">パッチ番号</SelectItem>
@@ -121,11 +146,21 @@ export function CreatePanelDialog({
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="tech-panel-location">場所</Label>
-          <BufferedInput id="tech-panel-location" value={location} onCommit={setLocation} className={fieldClass} />
+          <BufferedInput
+            id="tech-panel-location"
+            value={location}
+            onCommit={(v) => { locationRef.current = v; setLocation(v); }}
+            className={fieldClass}
+          />
         </div>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="tech-panel-model">型番</Label>
-          <BufferedInput id="tech-panel-model" value={model} onCommit={setModel} className={fieldClass} />
+          <BufferedInput
+            id="tech-panel-model"
+            value={model}
+            onCommit={(v) => { modelRef.current = v; setModel(v); }}
+            className={fieldClass}
+          />
         </div>
       </div>
     </FormDialog>

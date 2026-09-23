@@ -234,6 +234,69 @@ test('createPanel: 日本語だけの名前の盤を2枚足しても、それぞ
   assert.equal(new Set(inserted.map((j) => j.id)).size, 128, '128 個の id がすべて別');
 });
 
+// PR #737 のレビュー指摘 #2:
+test('createPanel: TRK（trunk）は ch数=32 以外を拒む（一覧・盤の絵が「TRK 32」と決め打っているため）', async () => {
+  const { createPanel } = await loadTs('server/src/contexts/qsheet/services/tech-master.service.ts', {
+    uuid: { v4: () => 'panel-1' },
+    '../../../shared/db/connection': {
+      queryAll: async () => [],
+      queryOne: async () => undefined,
+      execute: async () => {},
+      withTransaction: async (fn) => fn({ queryOne: async () => ({ n: 1 }), execute: async () => {} }),
+    },
+    './httpErrors': httpErrors,
+    '../../../shared/services/company-directory.service': companyDirectory(),
+  });
+  await assert.rejects(
+    createPanel({ name: 'TRK盤', jack_count: 48, kind: 'trunk', location: '', model: '' }, 'u1'),
+    (e) => e.code === 'BAD_REQUEST',
+  );
+});
+
+// PR #737 のレビュー指摘 #1・#3: 「会社を追加」で顧客専用（is_vendor=false）・技術人員0人の
+// 取引先を再利用して返したとき、通常の一覧の絞り込み（人数 or 仕入先）だけでは出ず、
+// 画面が選べたはずの会社を選べなかった。`include` に渡した id は例外的に出す。
+test('listCompanies: 人数0・is_vendor=falseの会社でも include に渡した id は一覧に出す', async () => {
+  const rows = [];
+  const { listCompanies } = await loadTs('server/src/contexts/qsheet/services/tech-master.service.ts', {
+    uuid: { v4: () => 'x' },
+    '../../../shared/db/connection': {
+      queryAll: async (sql, params) => {
+        rows.push({ sql, params });
+        // 偽の DB: `include` の id が WHERE 句に含まれているかだけを検査する
+        assert.ok(/co\.id = ANY\(\$1::text\[\]\)/.test(sql), 'include の id を条件に含める');
+        assert.deepEqual(params, [['co-reused']]);
+        return [{ id: 'co-reused', name: '顧客専用のA社', short_name: '', person_count: 0 }];
+      },
+      queryOne: async () => undefined,
+      execute: async () => {},
+      withTransaction: async (fn) => fn({}),
+    },
+    './httpErrors': httpErrors,
+    '../../../shared/services/company-directory.service': companyDirectory(),
+  });
+  const result = await listCompanies(['co-reused']);
+  assert.equal(rows.length, 1);
+  assert.deepEqual(result.map((r) => r.id), ['co-reused']);
+});
+
+test('listCompanies: includeIds を渡さないときは空配列（既定の絞り込みだけ）', async () => {
+  const params = [];
+  const { listCompanies } = await loadTs('server/src/contexts/qsheet/services/tech-master.service.ts', {
+    uuid: { v4: () => 'x' },
+    '../../../shared/db/connection': {
+      queryAll: async (sql, p) => { params.push(p); return []; },
+      queryOne: async () => undefined,
+      execute: async () => {},
+      withTransaction: async (fn) => fn({}),
+    },
+    './httpErrors': httpErrors,
+    '../../../shared/services/company-directory.service': companyDirectory(),
+  });
+  await listCompanies();
+  assert.deepEqual(params[0], [[]]);
+});
+
 // 4) 技術人員の会社は案件管理の取引先（companies）そのもの（tech-docs.md §13-5・migration 307）。
 //    techops からの「会社を追加」は、同じ名前の取引先があればそれを返し、無ければ
 //    取引先の登録の入口（createVendorRecord）を同じトランザクションで通して仕入先として作る。

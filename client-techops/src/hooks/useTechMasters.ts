@@ -42,8 +42,13 @@ export interface UseTechMastersResult {
   createPerson: (payload: techApi.TechPersonPayload) => Promise<boolean>;
   updatePerson: (id: string, patch: techApi.TechPersonPayload) => Promise<boolean>;
   deletePerson: (id: string) => Promise<boolean>;
-  /** 取引先（`companies`）に仕入先として足す。名前の変更・削除は案件管理で行う（§13-5） */
-  createCompany: (payload: techApi.TechCompanyPayload) => Promise<boolean>;
+  /**
+   * 取引先（`companies`）に仕入先として足す。名前の変更・削除は案件管理で行う（§13-5）。
+   * 送れたら作った（または再利用した）会社を返す。呼び出し側はその `id` で選択できる
+   * （名前の一致に頼らない——顧客専用の取引先を再利用したときも一覧に出るよう
+   * `reloadCompanies` に引き継ぐ・レビュー指摘）
+   */
+  createCompany: (payload: techApi.TechCompanyPayload) => Promise<TechCompany | false>;
   createPanel: (payload: techApi.CreatePatchPanelPayload) => Promise<boolean>;
   updatePanel: (id: string, patch: techApi.UpdatePatchPanelPayload) => Promise<boolean>;
   updateJack: (panelId: string, jackId: string, patch: techApi.UpdatePatchJackPayload) => Promise<boolean>;
@@ -61,6 +66,9 @@ export function useTechMasters(): UseTechMastersResult {
   const wantedPanelsRef = useRef<Set<string>>(new Set());
   const wantedPersonsRef = useRef<Map<string, techApi.ListTechPersonsParams>>(new Map());
   const inFlightRef = useRef<Set<string>>(new Set());
+  // 「会社を追加」で再利用した会社の id。通常の絞り込み（人数 or 仕入先）に関わらず
+  // 一覧へ出し続ける（顧客専用の取引先を再利用したときも選べるように・レビュー指摘）
+  const includeCompanyIdsRef = useRef<Set<string>>(new Set());
 
   // ⚠️ 外した印を**付け直す**。React.StrictMode は開発時に「付ける→外す→付け直す」を
   // 1回多く回すので、戻り値だけで false にすると 2 度目のマウントで false のままになり、
@@ -93,7 +101,7 @@ export function useTechMasters(): UseTechMastersResult {
 
   const reloadCompanies = useCallback(async () => {
     try {
-      const rows = await techApi.listTechCompanies();
+      const rows = await techApi.listTechCompanies({ include: [...includeCompanyIdsRef.current] });
       if (mountedRef.current) setCompanies(rows);
     } catch {
       notifyError("会社を読み込めませんでした。", { description: "少し待ってから、もう一度お試しください。" });
@@ -204,8 +212,19 @@ export function useTechMasters(): UseTechMastersResult {
   );
 
   const createCompany = useCallback(
-    (payload: techApi.TechCompanyPayload) =>
-      runMaster(() => techApi.createTechCompany(payload), reloadCompanies, "会社を追加できませんでした。"),
+    async (payload: techApi.TechCompanyPayload): Promise<TechCompany | false> => {
+      let created: TechCompany | undefined;
+      const ok = await runMaster(
+        async () => {
+          created = await techApi.createTechCompany(payload);
+          // 一覧の絞り込み（人数 or 仕入先）に関わらず、この会社は次の読み直しから出す
+          includeCompanyIdsRef.current.add(created.id);
+        },
+        reloadCompanies,
+        "会社を追加できませんでした。",
+      );
+      return ok && created ? created : false;
+    },
     [runMaster, reloadCompanies],
   );
 

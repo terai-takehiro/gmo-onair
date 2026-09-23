@@ -240,8 +240,14 @@ export async function updatePatchJack(panelId: string, jackId: string, patch: Up
 
 // ── 会社と人（⑥・読みは reader・編集は manager。会社は取引先 companies） ──
 
-export async function listTechCompanies(): Promise<TechCompany[]> {
-  const res = await api.get<Envelope<TechCompany[]>>("/techops/tech-companies");
+/**
+ * `include` は絞り込みに関わらず必ず一覧へ出す会社の id
+ * （「会社を追加」で再利用した顧客専用の取引先を、追加した直後だけ選べるようにする）。
+ */
+export async function listTechCompanies(params?: { include?: string[] }): Promise<TechCompany[]> {
+  const include = (params?.include ?? []).filter((id) => id.trim() !== "");
+  const qs = include.length > 0 ? `?${include.map((id) => `include=${encodeURIComponent(id)}`).join("&")}` : "";
+  const res = await api.get<Envelope<TechCompany[]>>(`/techops/tech-companies${qs}`);
   return res.data.data;
 }
 

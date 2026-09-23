@@ -39,20 +39,22 @@ export default function TechPersonsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [companyOpen, setCompanyOpen] = useState(false);
 
-  // 会社を足した直後は、その会社を選ぶ（人がまだ0人なので、選ばないと左の並びに出ない）
-  const [pendingCompanyName, setPendingCompanyName] = useState<string | null>(null);
+  // 会社を足した直後は、その会社を選ぶ（人がまだ0人・顧客専用の取引先を再利用したときは
+  // is_vendor も false なので、選ばないと左の並びに出ない）。`useTechMasters.createCompany`
+  // が返す id を使う（名前の一致に頼らない・レビュー指摘）
+  const [pendingCompanyId, setPendingCompanyId] = useState<string | null>(null);
 
   useEffect(() => {
-    if (pendingCompanyName !== null) {
-      const added = companies.find((c) => c.name === pendingCompanyName);
+    if (pendingCompanyId !== null) {
+      const added = companies.find((c) => c.id === pendingCompanyId);
       if (added) {
         setCompanyId(added.id);
-        setPendingCompanyName(null);
+        setPendingCompanyId(null);
         return;
       }
     }
     if (companyId === "" && companies.length > 0) setCompanyId(companies[0].id);
-  }, [companies, companyId, pendingCompanyName]);
+  }, [companies, companyId, pendingCompanyId]);
 
   // 会社は取引先（companies）そのもので、候補には仕入先がすべて入る（§13-5）。
   // 左の並びは「人がいる会社」と、いま選んでいる会社だけにする（仕入先全件を並べない）
@@ -216,9 +218,9 @@ export default function TechPersonsPage() {
         open={companyOpen}
         onOpenChange={setCompanyOpen}
         onSubmit={async (input) => {
-          const ok = await masters.createCompany(input);
-          if (ok) setPendingCompanyName(input.name);
-          return ok;
+          const created = await masters.createCompany(input);
+          if (created) setPendingCompanyId(created.id);
+          return !!created;
         }}
       />
     </PageShell>
