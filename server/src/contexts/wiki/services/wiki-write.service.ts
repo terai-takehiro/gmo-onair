@@ -29,6 +29,7 @@ import { assertPageEditable } from './wiki-lock.service';
 import { newWikiPageId, selectPageRow, rebuildPageLinks } from './wiki-page.service';
 import { parentDatabaseItems } from './wiki-row-props';
 import { recordWikiDraftReject } from './wiki-ai-corrections.service';
+import { markGapWritten } from './wiki-ai-gap.service';
 import { sanitizeProps } from '../wiki-props';
 import type { WikiPropValue } from '../wiki-props';
 
@@ -56,6 +57,16 @@ export interface CreatePageInput {
   review_by?: string | null;
   /** 履歴の1行に残す「何をしたか」（既定は「ページを追加」） */
   note?: string;
+  /**
+   * 「足りないページ」から起こしたときの、その質問の id（§6-⑦ ②）。
+   *
+   * ⚠️ **画面で2回に分けて呼ばないこと**（Codex レビュー指摘・#735）。
+   * 「ページを作る」→「質問を片づける」を画面から順に投げると、**前半だけ成功した
+   * ときに下書きが残ったまま操作は失敗**として見え、押し直すと**下書きがもう1本**
+   * できます。1回の呼び出しにして、結びつけはページができたあとに1回だけ行います
+   * （AI の下書き（`wiki-draft.service.ts` の `gapId`）と同じ形）。
+   */
+  gap_id?: string | null;
 }
 
 /** 題を入れずに作れる（あとから直せる）。ツリーに出る仮の題 */
@@ -210,6 +221,15 @@ export async function createPage(user: WikiUser, input: CreatePageInput): Promis
     );
     await rebuildPageLinks(tx, pageId, body);
   });
+
+  /*
+   * 質問との結びつけは**ページができたあと**に1回だけ。`markGapWritten` は
+   * 中で握りつぶす **best-effort** なので、結びつけに失敗してもページは残ります
+   * （質問の行も `open` のまま残るので、画面から片づけ直せます）。
+   * ⚠️ ここで throw させないこと — 下書きができているのに操作が失敗に見えると、
+   * 押し直した人が下書きを2本作ります。
+   */
+  if (input.gap_id) await markGapWritten(String(input.gap_id), pageId, user.id);
 
   return selectPageRow(pageId);
 }

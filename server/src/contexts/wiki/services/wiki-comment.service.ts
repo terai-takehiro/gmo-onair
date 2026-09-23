@@ -86,15 +86,29 @@ function newCommentId(): string {
  * 画面は「根＝返信できる」と見て返信欄を出すのに、`addComment` が
  * 「返信への返信」と見て 400 で断る、という食い違いが起きます。
  * サーバー側（`addComment`）も、**親が消えている返信は根として扱います**。
+ *
+ * ⚠️ **上限で切るのは古いほうです**（Codex レビュー指摘・#735）。
+ * 古い順に並べてから `LIMIT` すると、1ページのコメントが上限を超えた日から
+ * **新しく書いたコメントが二度と出てきません**（書けるし通知も飛ぶのに、
+ * 画面を開き直すと消えている）。新しいほうから取り、**並べ直して**古い順に返します。
+ * 窓から外れた親は別に拾うので、**返信だけが根に浮くことはありません**
+ * （返す件数は最大で上限 ＋ その親の数）。
  */
 export async function listComments(user: WikiUser, pageId: string): Promise<Row[]> {
   await assertReadablePage(user, pageId);
   const rows = await queryAll(
-    `${COMMENT_SELECT}
+    `WITH win AS (
+       SELECT id, parent_id FROM wiki_comments
+        WHERE page_id = ? AND deleted_at IS NULL
+        ORDER BY created_at DESC, id DESC
+        LIMIT ${COMMENT_LIMIT}
+     )
+     ${COMMENT_SELECT}
       WHERE c.page_id = ? AND c.deleted_at IS NULL
-      ORDER BY c.created_at ASC, c.id ASC
-      LIMIT ${COMMENT_LIMIT}`,
-    [pageId],
+        AND (c.id IN (SELECT id FROM win)
+             OR c.id IN (SELECT parent_id FROM win WHERE parent_id IS NOT NULL))
+      ORDER BY c.created_at ASC, c.id ASC`,
+    [pageId, pageId],
   );
   const manager = isWikiManager(user);
   const decorate = (r: Row): Row => ({

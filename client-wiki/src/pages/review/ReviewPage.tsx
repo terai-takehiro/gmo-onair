@@ -96,7 +96,8 @@ export default function ReviewPage() {
       .filter(Boolean).join(' ・ ')
     : tab === 'gaps'
       ? '聞かれた回数の多い順'
-      : `直近 ${REVIEW_DIGEST_WINDOW_DAYS}日`;
+      // スペースの軸を持たない集計なので、全社の数字であることを言い切る
+      : `直近 ${REVIEW_DIGEST_WINDOW_DAYS}日・Wiki 全体`;
 
   return (
     <PageShell>
@@ -105,19 +106,28 @@ export default function ReviewPage() {
         sub="月1回、スペースの担当が確認します。予定日の来たページを直し、AI が答えられなかった質問からページを作ります。"
         icon={<ListChecks />}
       >
-        <div className="w-full shrink-0 sm:w-auto">
-          <select
-            aria-label="スペースで絞り込む"
-            value={spaceId}
-            onChange={(e) => setParam('space', e.target.value)}
-            className={SELECT_CLASS}
-          >
-            <option value="">すべてのスペース</option>
-            {(spacesQ.data ?? []).map((s) => (
-              <option key={s.id} value={s.id}>{s.name}</option>
-            ))}
-          </select>
-        </div>
+        {/*
+          * ⚠️ **「AI の直され方」では出しません**（Codex レビュー指摘・#735）。
+          * あのタブが出すのは AI の機能ごとの集計（`ai_outputs` / `ai_corrections`）で、
+          * **どのスペースの話かという軸をそもそも持ちません**。絞り込みだけ置くと、
+          * 全社の数字を選んだスペースの数字として読ませてしまいます。
+          * `?space=` は消さないので、他のタブに戻れば絞り込みは残ります。
+          */}
+        {tab !== 'ai' && (
+          <div className="w-full shrink-0 sm:w-auto">
+            <select
+              aria-label="スペースで絞り込む"
+              value={spaceId}
+              onChange={(e) => setParam('space', e.target.value)}
+              className={SELECT_CLASS}
+            >
+              <option value="">すべてのスペース</option>
+              {(spacesQ.data ?? []).map((s) => (
+                <option key={s.id} value={s.id}>{s.name}</option>
+              ))}
+            </select>
+          </div>
+        )}
       </PageHeader>
 
       {/* タブ。**画面の中に2本目のナビの列を作らない**ので、横1本で置く */}

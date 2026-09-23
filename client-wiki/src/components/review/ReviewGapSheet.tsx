@@ -28,7 +28,7 @@ import { createAiDraftPage } from '@/components/ai/aiApi';
 import { createWikiPage } from '@/components/page/pageOpsApi';
 import BufferedInput from '@/components/editor/BufferedInput';
 import { useWikiSpaces, wikiKeys } from '@/lib/wikiApi';
-import { postGapResolve, reviewKeys, type ReviewGap } from './reviewApi';
+import { reviewKeys, type ReviewGap } from './reviewApi';
 
 const FIELD_CLASS =
   'min-h-tap w-full rounded-control-lg border border-border bg-card px-3 text-list text-foreground lg:h-10 lg:min-h-0';
@@ -91,12 +91,18 @@ export default function ReviewGapSheet({ open, onOpenChange, gap }: ReviewGapShe
 
   const blank = useMutation({
     meta: { action: 'ページの作成' },
-    mutationFn: async () => {
-      const page = await createWikiPage({ space_id: effectiveSpaceId, title: title.trim() || '（題のないページ）' });
-      // ページを作った側から質問に結びつける（§7-2。AI の口は `gap_id` で自動で結ぶ）
-      if (gap) await postGapResolve(gap.id, 'written', page.id);
-      return page;
-    },
+    /*
+     * ⚠️ **1回の呼び出しで済ませます**（Codex レビュー指摘・#735）。
+     * 以前は「ページを作る」→「質問を片づける」を画面から順に投げていたため、
+     * 後半だけ失敗すると**下書きはできているのに操作は失敗**として見え、
+     * 押し直した人が下書きを2本作っていました。`gap_id` を渡せばサーバーが
+     * ページを作ったあとに1回だけ結びつけます（AI の下書きと同じ形）。
+     */
+    mutationFn: () => createWikiPage({
+      space_id: effectiveSpaceId,
+      title: title.trim() || '（題のないページ）',
+      gap_id: gap?.id ?? null,
+    }),
     onSuccess: (page) => done({ pageId: page.id, title: page.title, openQuestions: [] }),
   });
 
