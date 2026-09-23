@@ -123,7 +123,13 @@ export function useThreadEdit(projectId: string) {
   });
 
   return {
-    save: (a: ActivityLog, patch: ActivityPatch) => save.mutate({ a, patch }),
+    /**
+     * `onDone` は**保存が通ったときだけ**呼ぶ（#727 の Codex 指摘）。押した瞬間に
+     * 編集欄を閉じると、400・通信断で落ちたときに入れた値が全部消え、
+     * 開き直して打ち直すことになる
+     */
+    save: (a: ActivityLog, patch: ActivityPatch, onDone?: () => void) =>
+      save.mutate({ a, patch }, { onSuccess: () => onDone?.() }),
     /**
      * 次のアクションの削除。**空文字を送る**とサーバーが `null` に落とし、
      * `ai_corrections` に `reject` を1行積みます（会社方針の条件2）。

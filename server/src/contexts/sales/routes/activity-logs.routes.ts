@@ -76,9 +76,16 @@ router.get('/by-project', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+/*
+ * 次のアクション予定の帯。**一覧と同じ絞り込みに従う**（#734 の Codex 指摘）。
+ * `user_id`（記録者）を渡さなければ呼んだ本人、`owner_id`（案件の担当者）は任意。
+ * 従わないと、別の人で絞った一覧の上に自分の予定が並び、「すべて見る」で消える。
+ */
 router.get('/upcoming', async (req, res) => {
   const days = parseInt(req.query.days as string) || 7;
-  res.json({ success: true, data: await activityLogService.getUpcomingActions(req.user!.id, days) });
+  const userId = (req.query.user_id as string) || req.user!.id;
+  const ownerId = (req.query.owner_id as string) || undefined;
+  res.json({ success: true, data: await activityLogService.getUpcomingActions(userId, days, ownerId) });
 });
 
 /*

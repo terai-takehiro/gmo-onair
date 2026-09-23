@@ -377,6 +377,7 @@ export async function recordActivityCorrections(
   if (diffs.length === 0) {
     // **無修正で通した**ことを残す。これが正解ラベルで、
     // 無いと「無修正採用率」の分母が壊れる
+    // （前の保存で積んだ項目ごとの行は `replaceCorrections` が一緒に消す）
     await replaceCorrections(out.id, [{ fieldPath: '(全体)', type: 'none' }], userId);
     return;
   }
@@ -412,9 +413,18 @@ async function replaceCorrections(
   const hasReal = diffs.some((d) => d.type !== 'none');
   if (hasReal) paths.push('(全体)');
   try {
+    /*
+     * ⚠️ **差分が1つも無い回は、その出力の行を全部消してから積む**（#727 の Codex 指摘）。
+     * 一度直してから AI の値へ全部戻したとき、`(全体)` だけ消すと前の保存の
+     * `fix`/`reject` が残り、**同じ出力が「直した」と「無修正」の両方に数えられます**
+     * （`as_is_rate` とよく直される項目が両方狂う）。項目名を並べて消す形にすると、
+     * 比べる項目を足した日に消し漏れるので、出力ごと消す。
+     */
     await execute(
-      'DELETE FROM ai_corrections WHERE output_id = ? AND field_path = ANY(?::text[])',
-      [outputId, paths],
+      hasReal
+        ? 'DELETE FROM ai_corrections WHERE output_id = ? AND field_path = ANY(?::text[])'
+        : 'DELETE FROM ai_corrections WHERE output_id = ?',
+      hasReal ? [outputId, paths] : [outputId],
     );
   } catch (e) {
     // 消せなくても積む。**信号が残らないより、少し重複するほうがまし**

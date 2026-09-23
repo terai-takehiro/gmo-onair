@@ -692,7 +692,15 @@ export class ActivityLogService {
    * 前はここに除外が無く、**失注案件のやることが永久に帯へ並んでいました**
    * — 押して片づけない限り消えないので、本当にやるべきものが埋もれます。
    */
-  async getUpcomingActions(userId: string, daysAhead: number = 7) {
+  /**
+   * @param userId  記録者（`activity_logs.user_id`）。画面の `?user=`、未指定なら呼んだ本人
+   * @param ownerId 案件の担当者（`projects.assigned_to`）。画面の `?owner=`。
+   *   指定すると案件に紐づかない記録は出ない（一覧の `owner_id` と同じ意味）
+   */
+  async getUpcomingActions(userId: string, daysAhead: number = 7, ownerId?: string) {
+    const params: unknown[] = [userId, daysAhead];
+    let ownerSql = '';
+    if (ownerId) { ownerSql = ' AND p.assigned_to = ?'; params.push(ownerId); }
     return await queryAll(
       `SELECT a.*, p.code as project_code, p.name as project_name, c.name as customer_name
        FROM activity_logs a
@@ -700,9 +708,9 @@ export class ActivityLogService {
        LEFT JOIN companies c ON c.id = a.customer_id
        WHERE ${OPEN_NEXT_ACTION_SQL}
          AND a.user_id = ?
-         AND a.next_action_date <= (CURRENT_DATE + (? || ' days')::interval)::text
+         AND a.next_action_date <= (CURRENT_DATE + (? || ' days')::interval)::text${ownerSql}
        ORDER BY a.next_action_date ASC`,
-      [userId, daysAhead]
+      params
     );
   }
 }

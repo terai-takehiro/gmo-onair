@@ -522,6 +522,16 @@ PR 本文に自分で書いたもの。指摘が0件だと表に1行も残らな
 | 「期限なし」（約20か所） | 全アプリの画面文言（案件管理・プロジェクト管理・日常業務のタスク・ホームのタスク・標準工程の当て込み・スマホの共通の期限表示 `shared/src/client-v4/mobile.ts`・整合性チェックの説明文）16か所を「期限未設定」に置き換え、`scripts/check-ui-tokens.mjs` の `overdue-wording` に「期限なし」を足して止めた（基準線は持たない） | ⭕️ 次の PR |
 | 案件の担当者で絞れない | **案件の担当者**（`projects.assigned_to`）での絞り込みを**記録者とは別の引数** `?owner=`（API は `owner_id`）で足した。記録者 `?user=` の意味は変えない（並びを切り替えた瞬間に別の集まりが出ないように）。案件別（`GET /activity-logs/by-project`）・時系列（`GET /activity-logs`）の両方に効き、**案件に紐づかない記録は担当者で絞ると出ない**（担当者が決まらないため）。欄は「担当者」を「記録者」の前に置いた。試験 `shared/tests/activityLogParams.test.ts` | ⭕️ 次の PR |
 
+⚠️ **付け直した `@codex review` に、#727 から3件・#734 から1件（すべて P2）が届いた**（2026-09-23 03:30〜03:31）。
+#734 の続きの PR（#736）で次のように扱った:
+
+| PR | 重み | どこ | 何が起きるか | 状態 |
+| --- | --- | --- | --- | --- |
+| #727 | P2 | `activity-corrections.service.ts` の `replaceCorrections` | AI の整形を一度直してから**全部元へ戻した**保存で、`(全体) none` だけ積み直し、前の保存の項目ごとの `fix`/`reject` が残っていた。同じ出力が「直した」と「無修正」の両方に数えられ、`as_is_rate` とよく直される項目が両方狂う | ⭕️ #736（差分の無い回はその出力の行を項目名を問わず消してから積む。試験 `server/tests/activity-corrections-revert-review.test.mjs`・直す前のコードで落ちることを確認） |
+| #727 | P2 | `activityLog/NextActionButtons.tsx` | 閲覧権限の人にも「完了」「延期」が出て、押すと 403 | ⭕️ #734 で直し済み（操作の列ごと editor にだけ出す・`LogTab.tsx` の `actions = canEdit ? … : undefined`。#727 の宿題⑤） |
+| #727 | P2 | `projectDetail/thread/ThreadCardEdit.tsx` | やり取りの編集を保存した瞬間に編集欄を閉じており、400・通信断で落ちると入れた値が全部消えた | ⭕️ #736（`useThreadEdit` の `save` に `onDone` を足し、閉じるのは保存が通ってから） |
+| #734 | P2 | `LogTab.tsx` の次のアクション予定の帯・`GET /activity-logs/upcoming` | 時系列で別の記録者に絞っても、帯は呼んだ本人の予定のまま（一覧と帯で別の人が混ざり、「すべて見る」で帯の行が消える） | ⭕️ #736（帯も `user_id`（記録者・未指定なら本人）と `owner_id`（案件の担当者）で絞る。鍵にも入れた） |
+
 
 | PR | 重み | どこ | 何が起きるか | 状態 |
 | --- | --- | --- | --- | --- |

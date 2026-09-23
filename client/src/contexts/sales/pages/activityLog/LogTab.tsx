@@ -158,9 +158,16 @@ export function LogTab({
   });
   const rows = timeline.data?.data ?? [];
 
+  // **一覧と同じ記録者・担当者で絞る**（#734 の Codex 指摘。記録者を選ばなければ自分の分）。
+  // 鍵の頭は `activity-upcoming` のまま（保存後の invalidate が前方一致で落とす）
   const { data: upcomingData } = useQuery({
-    queryKey: ['activity-upcoming'],
-    queryFn: async () => (await api.get('/activity-logs/upcoming')).data,
+    queryKey: ['activity-upcoming', userFilter, ownerFilter],
+    queryFn: async () => {
+      const params: Record<string, string> = {};
+      if (userFilter) params.user_id = userFilter;
+      if (ownerFilter) params.owner_id = ownerFilter;
+      return (await api.get('/activity-logs/upcoming', { params })).data;
+    },
     enabled: view === 'timeline',
   });
   const upcoming: ActivityLogRow[] = upcomingData?.data ?? [];
