@@ -50,6 +50,9 @@ import { runMonthlyReviewIfDue, AI_REVIEW_JOB_KEY, AI_REVIEW_NOTIFY_TEMPLATE_ID 
 import {
   runSalesReviewIfDue, SALES_AI_REVIEW_JOB_KEY, SALES_AI_REVIEW_NOTIFY_TEMPLATE_ID,
 } from '../../sales/services/sales-ai-review.service';
+import {
+  runWikiReviewNoticeIfDue, WIKI_REVIEW_JOB_KEY, WIKI_REVIEW_NOTIFY_TEMPLATE_ID,
+} from '../../wiki/services/wiki-review.service';
 
 /**
  * いまの `YYYY-MM-DD` と `HH:MM`。**日本の壁時計**で返す。
@@ -817,6 +820,21 @@ async function salesAiReviewDraft(today: string): Promise<NotifyInput[]> {
   }
 }
 
+/**
+ * Wiki の「今月の見直し」（`docs/design/v4/wiki.md` §6-⑦）。
+ * 制作（03:25）・営業（03:35）の月次と同じ形 — **毎月1日だけ動き、AI を1回も呼ばない**
+ * （`runWikiReviewNoticeIfDue` が日付を見て他の日は即 `[]` を返す）。
+ * 宛先は各スペースの担当で、**見直すものが1件も無いスペースには出しません**。
+ */
+async function wikiReviewNotice(today: string): Promise<NotifyInput[]> {
+  try {
+    return await runWikiReviewNoticeIfDue(today);
+  } catch (e) {
+    console.error('[scheduler] wiki_review_monthly failed:', (e as Error).message);
+    return [];
+  }
+}
+
 const JOBS: Job[] = [
   // 案件の自動整理。朝いちの通知3本（09:00）より前に済ませる — 繰り上げ（受注→実施済）を
   // 先にしておかないと、その日の他の集計・通知が「終わったのに受注のまま」の行を数える。
@@ -912,6 +930,13 @@ const JOBS: Job[] = [
     key: SALES_AI_REVIEW_JOB_KEY, at: '03:35', templateId: SALES_AI_REVIEW_NOTIFY_TEMPLATE_ID,
     sendTo: '案件管理の manager', cadence: '毎月1日に1回だけ',
     run: salesAiReviewDraft,
+  },
+  // Wiki の月次の見直し（wiki.md §6-⑦）。月次3本目として営業（03:35）の直後に置く。
+  // 宛先はスペースごとに違う（各スペースの担当）ので、1人1通ではなく「担当 × 棚」で出る
+  {
+    key: WIKI_REVIEW_JOB_KEY, at: '03:45', templateId: WIKI_REVIEW_NOTIFY_TEMPLATE_ID,
+    sendTo: 'Wiki の各スペースの担当', cadence: '毎月1日に1回だけ（見直すものがある棚だけ）',
+    run: wikiReviewNotice,
   },
 ];
 

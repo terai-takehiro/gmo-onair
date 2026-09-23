@@ -66,7 +66,7 @@ test('by-project: summary は due を無視し、1本の集計で全区分を返
   assert.doesNotMatch(cte, /overdue_count > 0/);
 });
 
-test('by-project: 担当者の絞り込みは活動を記録した人（時系列の一覧と同じ意味）', async () => {
+test('by-project: 記録者の絞り込み（user_id）は活動を記録した人（時系列の一覧と同じ意味）', async () => {
   const { mod, calls } = await loadService({ total: 0 });
   await mod.listByProject({ due: 'all', userId: 'u-1', search: '展示' }, 1, 20, 0);
   for (const c of calls) {
@@ -78,6 +78,27 @@ test('by-project: 担当者の絞り込みは活動を記録した人（時系�
     assert.deepEqual(c.params.slice(0, 5), ['u-1', '%展示%', '%展示%', '%展示%', '%展示%']);
   }
   assert.deepEqual(calls.find((c) => c.kind === 'all').params.slice(-2), [20, 0]);
+});
+
+test('by-project: 案件の担当者（owner_id）は記録者と別の条件で、両方指定すると両方効く', async () => {
+  const { mod, calls } = await loadService({ total: 0 });
+  await mod.listByProject({ due: 'all', userId: 'u-1', ownerId: 'o-1' }, 1, 20, 0);
+  for (const c of calls) {
+    assert.match(c.sql, /AND a\.user_id = \?/);
+    assert.match(c.sql, /AND p\.assigned_to = \?/);
+    // 引数は 記録者 → 担当者 の順（入れ違うと別の人で絞られる）
+    assert.deepEqual(c.params.slice(0, 2), ['u-1', 'o-1']);
+  }
+});
+
+test('by-project: owner_id だけなら記録者の条件は入らない', async () => {
+  const { mod, calls } = await loadService({ total: 0 });
+  await mod.listByProject({ due: 'all', ownerId: 'o-1' }, 1, 20, 0);
+  for (const c of calls) {
+    assert.match(c.sql, /AND p\.assigned_to = \?/);
+    assert.doesNotMatch(c.sql, /a\.user_id = \?/);
+    assert.equal(c.params[0], 'o-1');
+  }
 });
 
 test('by-project: 集計の行が無くても summary は 0 で埋まる', async () => {

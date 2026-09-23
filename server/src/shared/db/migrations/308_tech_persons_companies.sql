@@ -1,5 +1,5 @@
 -- ============================================================
--- 307: 技術人員の「会社」を、案件管理の取引先（companies）そのものにする
+-- 308: 技術人員の「会社」を、案件管理の取引先（companies）そのものにする
 --
 -- 設計: docs/design/v4/tech-docs.md §13-5（2026-09-23 ご判断:
 --   「技術人員の会社は、案件管理の取引先 companies をそのまま使う」）。
@@ -25,7 +25,7 @@
 ALTER TABLE qsheet_tech_persons ADD COLUMN IF NOT EXISTS company_id TEXT REFERENCES companies(id);
 
 -- ── 2. 旧会社 id → companies.id の対応表（この取引の中だけ） ───────
-CREATE TEMP TABLE IF NOT EXISTS _m306_tech_company_map (
+CREATE TEMP TABLE IF NOT EXISTS _m308_tech_company_map (
   tech_company_id TEXT PRIMARY KEY,
   company_id      TEXT NOT NULL
 ) ON COMMIT DROP;
@@ -73,14 +73,14 @@ BEGIN
               NULLIF(r.note, ''), NOW(), NOW());
     END IF;
 
-    INSERT INTO _m306_tech_company_map (tech_company_id, company_id) VALUES (r.id, cid)
+    INSERT INTO _m308_tech_company_map (tech_company_id, company_id) VALUES (r.id, cid)
     ON CONFLICT (tech_company_id) DO NOTHING;
   END LOOP;
 
   -- 人: 旧会社から companies へ（既に入っている人は触らない）
   UPDATE qsheet_tech_persons p
      SET company_id = m.company_id
-    FROM _m306_tech_company_map m
+    FROM _m308_tech_company_map m
    WHERE p.tech_company_id = m.tech_company_id
      AND p.company_id IS NULL;
 END $$;
@@ -91,7 +91,7 @@ ALTER TABLE qsheet_tech_staff_rows DROP CONSTRAINT IF EXISTS qsheet_tech_staff_r
 
 UPDATE qsheet_tech_staff_rows s
    SET company_id = m.company_id
-  FROM _m306_tech_company_map m
+  FROM _m308_tech_company_map m
  WHERE s.company_id = m.tech_company_id;
 
 -- 対応の取れない id は外す（表示に使う名前は company_name に写してあるので消えない・§5-2）

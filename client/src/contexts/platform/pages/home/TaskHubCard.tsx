@@ -59,7 +59,7 @@ type TabKey = 'mine' | 'waiting';
 
 /** 期限を「7/31 17:00」で。**分まで出す**（イズム: 何月何日何時何分まで） */
 function fmtDue(v: string | null): string {
-  if (!v) return '期限なし';
+  if (!v) return '期限未設定';
   const d = new Date(v.replace(' ', 'T'));
   if (Number.isNaN(d.getTime())) return v;
   return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;

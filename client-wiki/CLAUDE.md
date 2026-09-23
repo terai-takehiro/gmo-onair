@@ -17,16 +17,17 @@ Markdown で書いた文章をツリーに並べ、検索できて、AI が読�
 | --- | --- | --- |
 | ホーム | `/` | 要見直しの案内・スペースのタイル・最近更新・お気に入り |
 | スペース | `/s/:key` | 中央＝直下のページの一覧（ツリーは共通の左メニューの中） |
-| ページ | `/p/:id` | 中央＝本文（Markdown）。ツリーは共通の左メニューの中・情報は右パネル（開閉式・既定は閉じ） |
+| ページ | `/p/:id` | 中央＝本文（Markdown）。ツリーは共通の左メニューの中・右パネルは**情報／目次／履歴／コメント**の4タブ（開閉式・既定は閉じ） |
 | **データベース** | `/p/:id`（`kind='database'`） | 同じ URL。中央＝ビューのタブ（表／ボード／カレンダー）と行、右＝「項目」（列の定義）。振り分けは `pages/database/PageRoute.tsx` |
 | 編集 | `/p/:id/edit` | 素の `<textarea>` ＋ 右にプレビュー。自動保存・編集ロック |
 | 履歴 | `/p/:id/history` | 版の一覧と2つの版の違い（**PC の画面**） |
 | テンプレート | `/templates` | テンプレートの一覧と本文（**PC の画面**） |
 | **AI に聞く** | `/ask` | 出典つきの回答。出典が出せなければ答えず「足りないページ」に登録する（段E） |
 | **検索** | `/search` | 左＝絞り込み（スペース・タグ・担当・更新日）／右＝当たり。当たった語を太くする |
+| **見直し** | `/review` | 3つのタブ（見直し予定／足りないページ／AI の直され方）。タブは本文の上に横1本（**画面の中に2本目のナビの列を作らない**）。段F |
 | **書き出しと取り込み** | `/transfer` | スペースまるごとの zip 書き出しと、Obsidian・Notion・ONAiR の zip の取り込み（**PC の画面**・`pages/importexport/`） |
 
-**まだ無いもの**: 見直しとコメント（段F）。
+**まだ無いもの**: スペース管理（段F・別途着手中）。見直し（`pages/review/`・§6-⑦）とコメント（`components/comment/`・§6-②）は段F で作った。
 
 ### 作っていない画面への入口は出さない
 
@@ -36,10 +37,10 @@ Markdown で書いた文章をツリーに並べ、検索できて、AI が読�
 > 押せるのに何も出ない項目は、利用者には「壊れている」としか見えない。
 > 設計書も「その段までは『準備中』ではなく**出さない**」と決めている（§6-①）。
 
-**段E で「AI に聞く」を `ready: true` にした。** 残っているのは**「見直し」（段F）だけ**で、
-その画面を作ったら `ready: true` に変えるだけでよい。
+**段F で「見直し」を `ready: true` にした**（左メニューと、スマホ下タブの「やること」）。
+残っているのは**「スペース管理」（段F）だけ**で、その画面を作ったら `ready: true` に変えるだけでよい。
 
-⚠️ **段F を作るまで「見直し」を出さないこと。** ここを先に開けると、
+⚠️ **その画面を作るまで「スペース管理」を出さないこと。** ここを先に開けると、
 Wiki の一番の入口（左メニュー）に押せて何も出ない項目が1つ残る。
 
 **編集画面のツールバーの「AI で整える」は段E で置いた。** 設計書 §6-⑨ のスマホの
@@ -152,6 +153,8 @@ Wiki の一番の入口（左メニュー）に押せて何も出ない項目が
 | `lib/wikiDatabaseApi.ts`（`WIKI_DB_URL`） | データベースの項目・ビュー・行（段C） |
 | `components/search/searchApi.ts` | 検索・お気に入り・書き出しと取り込み（段D） |
 | `components/search/askApi.ts` | AI に聞く・スレッド・3値の評価（段E） |
+| `components/page/commentApi.ts` | ページのコメント（読む・書く・解決・削除。段F） |
+| `components/review/reviewApi.ts` | 見直し予定・「見直した」・足りないページ・AI の直され方（段F） |
 | `components/ai/aiApi.ts` | AI で整える・AI で下書きを作る（段E） |
 
 **同じ口を2つのファイルに持たない。** 段C は3人で同時に書いた間だけ `components/database/databaseApi.ts`
@@ -171,11 +174,13 @@ Wiki の一番の入口（左メニュー）に押せて何も出ない項目が
 | `components/wiki/` | このアプリの部品（`WikiMarkdown` `WikiAlert` `WikiOnairCard` `WikiTree` `WikiToc` `WikiStatusBadge` `WikiSection` `PageBriefRow`） |
 | `components/database/` | データベースの画面（ビューのタブ・表・ボード・カレンダー・セル・項目とビューのシート） |
 | `components/items/` | 行ページ側（「情報」に並ぶ項目の値・データベースの追加） |
+| `components/comment/` | コメント（右パネルのタブと本文の下で同じものを使う。段F） |
+| `components/review/` | 見直しの3つのタブと「ページを作成」のシート（段F） |
 | `components/editor/` | 編集画面の部品（段B） |
 | `components/search/` | 検索の画面と小窓（`Ctrl`／`⌘`＋`K`）・お気に入り・最近見たもの（段D） |
 | `components/ui/` | shared の再エクスポート1行だけ（実体を2つ作らない） |
 | `lib/` | `wikiApi`（URL と react-query）`wikiFormat`（第N版・見直し予定）`wikiTree`（ツリーの組み立て）`lineDiff`（版の差分） |
-| `pages/` | 画面。`home/` `page/` `database/` `editor/` `history/` `templates/` `search/` `importexport/` |
+| `pages/` | 画面。`home/` `page/` `database/` `editor/` `history/` `templates/` `search/` `importexport/` `review/` |
 
 画面に使う共通部品・トークン・シェルの正は [`shared/CLAUDE.md`](../shared/CLAUDE.md)。
 

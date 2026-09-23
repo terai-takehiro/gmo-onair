@@ -9,6 +9,8 @@ import databasesRoutes from './routes/databases.routes';
 import searchRoutes from './routes/search.routes';
 import mdRoutes from './routes/md.routes';
 import aiRoutes from './routes/ai.routes';
+import commentsRoutes from './routes/comments.routes';
+import reviewRoutes from './routes/review.routes';
 
 /**
  * Wiki（新しいブロックアプリ）— Markdown で書いた文章をツリーに並べ、
@@ -68,7 +70,18 @@ import aiRoutes from './routes/ai.routes';
  *   POST   /wiki/ai/gaps/:id/resolve          ページにした／書かない（manager）
  *   GET    /wiki/ai/digest                    AI の直され方と成果（条件4・manager）
  *
- * 見直しは段F（§9）。
+ * 段F（見直しとコメント・§6-⑦⑧）:
+ *   GET    /wiki/pages/:id/comments     そのページのコメント（返信つき・reader）
+ *   POST   /wiki/pages/:id/comments     書く（`parent_id` で返信・reader）
+ *   POST   /wiki/comments/:id/resolve   解決にする／戻す（reader）
+ *   DELETE /wiki/comments/:id           消す（**書いた本人か manager だけ**）
+ *   GET    /wiki/comments/outcome       AI から生まれたページに付いたコメント（manager）
+ *   GET    /wiki/review                 見直し予定のページ（3区分・件数・「見直した」の記録）
+ *   POST   /wiki/pages/:id/reviewed     「見直した」＝次の予定日を入れ直す（editor）
+ *
+ * 見直しの3つのタブのうち、②足りないページと③AI の直され方は**段E の口をそのまま**
+ * 使います（`/wiki/ai/gaps`・`/wiki/ai/digest`）。同じ集計を2か所に持ちません。
+ * 毎月1日の「今月の見直し」の通知は `platform/services/scheduler.service.ts`。
  *
  * ⚠️ **並べる順に意味があります。** `/pages/:id/versions` は `/pages/:id` より
  * 先に書いてありますが、Express は**より具体的な道から順に**照合するわけではなく
@@ -89,6 +102,10 @@ export function createWikiRoutes(): Router {
   // ⚠️ `aiRoutes` の `/pages/:id/draft` は `pagesWriteRoutes` より**先**に置きます
   //    （後ろでも道は別ですが、ページの書き込みの道が広がったときに巻き込まれないため）
   router.use('/wiki', aiRoutes);
+  // 段F。`/pages/:id/comments`・`/pages/:id/reviewed` はページの道と別ですが、
+  // `aiRoutes` の `/pages/:id/draft` と同じ理由でページの書き込みより**先**に置きます
+  router.use('/wiki', commentsRoutes);
+  router.use('/wiki', reviewRoutes);
   router.use('/wiki', pagesWriteRoutes);
   router.use('/wiki', pagesRoutes);
   return router;

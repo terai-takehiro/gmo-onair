@@ -297,7 +297,7 @@ test('listCompanies: includeIds を渡さないときは空配列（既定の絞
   assert.deepEqual(params[0], [[]]);
 });
 
-// 4) 技術人員の会社は案件管理の取引先（companies）そのもの（tech-docs.md §13-5・migration 307）。
+// 4) 技術人員の会社は案件管理の取引先（companies）そのもの（tech-docs.md §13-5・migration 308）。
 //    techops からの「会社を追加」は、同じ名前の取引先があればそれを返し、無ければ
 //    取引先の登録の入口（createVendorRecord）を同じトランザクションで通して仕入先として作る。
 test('createCompany: 同じ名前の取引先があれば作らずにそれを返す', async () => {

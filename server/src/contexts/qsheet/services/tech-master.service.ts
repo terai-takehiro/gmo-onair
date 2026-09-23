@@ -1,7 +1,7 @@
 /**
  * 技術資料のマスタ — パッチ盤（`qsheet_patch_panels` / `qsheet_patch_jacks`）と
  * 会社・技術人員（会社は案件管理の取引先 `companies`・人は `qsheet_tech_persons`）。
- * 設計: docs/design/v4/tech-docs.md §5-1・§5-5・§9・§13-5（会社は取引先を使う・migration 307）。
+ * 設計: docs/design/v4/tech-docs.md §5-1・§5-5・§9・§13-5（会社は取引先を使う・migration 308）。
  *
  * 組織共通のマスタなので案件には紐づかない（行の可視性は `qsheet` reader 以上で一律）。
  * 書き込みは manager だけ——権限はルーター側（`tech-masters.routes.ts`）で見る。
@@ -203,7 +203,7 @@ export async function updateJack(panelId: string, jackId: string, userId: string
 }
 
 // ============================================================
-// 会社（= 案件管理の取引先 `companies`。§13-5・migration 307）
+// 会社（= 案件管理の取引先 `companies`。§13-5・migration 308）
 // ============================================================
 
 /*

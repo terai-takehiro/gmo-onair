@@ -61,6 +61,12 @@ export interface CreateWikiPageInput {
   body_md?: string;
   icon?: string | null;
   status?: 'draft' | 'published';
+  /**
+   * 「足りないページ」の質問から起こすときの、その質問の id。
+   * **サーバーが1回で結びつけます** — 画面から作成と片づけを順に投げると、
+   * 前半だけ成功したときに押し直した人が下書きを2本作ります（#735）。
+   */
+  gap_id?: string | null;
 }
 
 export async function createWikiPage(input: CreateWikiPageInput): Promise<WikiPage> {

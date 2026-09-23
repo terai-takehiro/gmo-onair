@@ -54,4 +54,11 @@ export const WIKI_MOBILE_OK: string[] = [
    * 「AI が読んだページ」は右の列に出せない幅では会話の下に続ける。
    */
   '/ask',
+  /*
+   * 見直し（設計 §6-⑦・§6-⑧ で `WIKI_MOBILE_OK`）。
+   * 月1回の確認は現場から片づけることがあるので、3つのタブとも
+   * 1024px 未満では表の列をやめ、1件＝1かたまりに畳んである
+   * （横スクロールする表にしない・`components/review/ReviewDueTab.tsx`）。
+   */
+  '/review',
 ];

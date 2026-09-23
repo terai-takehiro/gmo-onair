@@ -77,7 +77,7 @@ export function duePresets(base: Date): DuePreset[] {
  * `due` は `YYYY-MM-DD`（時刻が付いていても日付だけ見る）、`today` も同じ形。
  */
 export function dueLabel(due: string | null | undefined, today: string): { text: string; tone: 'over' | 'today' | 'soon' | 'far' | 'none' } {
-  if (!due) return { text: '期限なし', tone: 'none' };
+  if (!due) return { text: '期限未設定', tone: 'none' };
   const d = due.slice(0, 10);
   if (d < today) {
     const days = Math.round((Date.parse(`${today}T00:00`) - Date.parse(`${d}T00:00`)) / 86400000);

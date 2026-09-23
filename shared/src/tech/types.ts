@@ -145,7 +145,7 @@ export interface PatchDeviceOption {
 }
 
 /**
- * 技術人員の会社。**案件管理の取引先（`companies`）そのもの**（§13-5 の決定・migration 307）。
+ * 技術人員の会社。**案件管理の取引先（`companies`）そのもの**（§13-5 の決定・migration 308）。
  * techops からは読むのに要る列だけを出す（取引先の編集は案件管理で行う）。
  */
 export interface TechCompany {
