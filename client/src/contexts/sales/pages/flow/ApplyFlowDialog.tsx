@@ -125,7 +125,7 @@ export function ApplyFlowDialog({
       onOpenChange(false);
       notifySuccess(`${chosen.length} 件の作業を入れました`, {
         description: noDue > 0
-          ? `うち ${noDue} 件は実施日が決まっていないので期限なしです。実施日を入れたあとタスクタブで入れてください。`
+          ? `うち ${noDue} 件は実施日が決まっていないので期限未設定です。実施日を入れたあとタスクタブで入れてください。`
           : 'タスクタブから担当と期限を編集できます。',
       });
     },
@@ -144,7 +144,7 @@ export function ApplyFlowDialog({
         <div className="flex w-full flex-col items-stretch gap-2 sm:flex-row sm:items-center">
           <p className="text-note flex-1 text-muted-foreground">
             <span className="font-number">{chosen.length}</span> 件を入れます
-            {noDue > 0 && <>（うち <span className="font-number">{noDue}</span> 件は期限なし）</>}。
+            {noDue > 0 && <>（うち <span className="font-number">{noDue}</span> 件は期限未設定）</>}。
             <strong className="font-bold">入れられるのは一度だけ</strong>です。
           </p>
           <Button variant="outline" onClick={() => onOpenChange(false)}>キャンセル</Button>
@@ -227,7 +227,7 @@ export function ApplyFlowDialog({
                         <span className="font-number">{r.due}</span>
                       ) : (
                         <span className="flex items-center gap-1 text-warning">
-                          <CalendarOff className="h-3.5 w-3.5" aria-hidden="true" />期限なし
+                          <CalendarOff className="h-3.5 w-3.5" aria-hidden="true" />期限未設定
                         </span>
                       )}
                       <span>{r.when}</span>
@@ -286,7 +286,7 @@ export function ApplyFlowDialog({
         {!eventDate && (
           <p className="rounded-note text-note border border-warning-border bg-warning-surface px-3.5 py-2.5 text-secondary-foreground">
             この案件は<strong className="font-bold">実施日が決まっていません</strong>。
-            実施日から逆算する作業は<strong className="font-bold">期限なし</strong>で入ります
+            実施日から逆算する作業は<strong className="font-bold">期限未設定</strong>で入ります
             （推測の日付は作りません）。
           </p>
         )}

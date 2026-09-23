@@ -58,6 +58,8 @@ export interface ActivityLogFilter {
   projectId?: string;
   customerId?: string;
   userId?: string;
+  /** 案件の担当者（`projects.assigned_to`）。`userId`（記録者）とは別。案件にひも付かない記録は落ちる */
+  ownerId?: string;
   activityType?: string;
   search?: string;
   /** 'ai' = AI (MCP) 取込のみ / 'human' = 手入力のみ。判定は mcp_audit_log 照合 (OAuth 本人名義でも検出) */
@@ -79,6 +81,7 @@ export class ActivityLogService {
     if (filter.projectId) { where += ' AND a.project_id = ?'; params.push(filter.projectId); }
     if (filter.customerId) { where += ' AND a.customer_id = ?'; params.push(filter.customerId); }
     if (filter.userId) { where += ' AND a.user_id = ?'; params.push(filter.userId); }
+    if (filter.ownerId) { where += ' AND p.assigned_to = ?'; params.push(filter.ownerId); }
     if (filter.activityType) { where += ' AND a.activity_type = ?'; params.push(filter.activityType); }
     // 検索は件名・詳細に加えて 案件名・顧客名 も対象 (「あの会社とのやり取り」を探せるように)
     if (filter.search) {

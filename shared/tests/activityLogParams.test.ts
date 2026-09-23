@@ -15,8 +15,8 @@
  */
 import { describe, it, expect } from 'vitest';
 import {
-  readDue, readUser, withDue, withUser, withoutFilters, withParam,
-  assigneeOptions, ALL_ASSIGNEES, DUE_PARAM, USER_PARAM,
+  readDue, readUser, readOwner, withDue, withUser, withOwner, withoutFilters, withParam,
+  assigneeOptions, ALL_ASSIGNEES, DUE_PARAM, USER_PARAM, OWNER_PARAM,
 } from '../../client/src/contexts/sales/pages/activityLog/logParams';
 
 const sp = (s: string) => new URLSearchParams(s);
@@ -64,7 +64,7 @@ describe('期限の区分（?due=）', () => {
   });
 });
 
-describe('担当者（?user=）', () => {
+describe('記録者（?user=）', () => {
   it('無いときは空文字＝すべて', () => {
     expect(readUser(sp(''))).toBe('');
   });
@@ -83,11 +83,28 @@ describe('担当者（?user=）', () => {
   });
 });
 
+describe('案件の担当者（?owner=）', () => {
+  it('無いときは空文字＝すべて', () => {
+    expect(readOwner(sp(''))).toBe('');
+  });
+
+  it('空文字を書くと引数ごと消える', () => {
+    expect(withOwner(sp('owner=u1'), ' ').has(OWNER_PARAM)).toBe(false);
+  });
+
+  it('記録者（?user=）とは別の引数として持つ（片方を書き換えても他方は残る）', () => {
+    const next = withOwner(sp('user=u1'), 'u2');
+    expect(readOwner(next)).toBe('u2');
+    expect(readUser(next)).toBe('u1');
+  });
+});
+
 describe('すべて解除', () => {
-  it('`due` と `user` だけを消し、`sort` / `view` / `tab` は残す', () => {
-    const next = withoutFilters(sp('tab=log&sort=next_action&due=overdue&user=u1'));
+  it('`due` と `user` と `owner` だけを消し、`sort` / `view` / `tab` は残す', () => {
+    const next = withoutFilters(sp('tab=log&sort=next_action&due=overdue&user=u1&owner=u2'));
     expect(next.has('due')).toBe(false);
     expect(next.has('user')).toBe(false);
+    expect(next.has('owner')).toBe(false);
     // ⚠️ `sort` を消すと `?sort=next_action` だけで来た入口が案件別へ飛ぶ
     expect(next.get('sort')).toBe('next_action');
     expect(next.get('tab')).toBe('log');

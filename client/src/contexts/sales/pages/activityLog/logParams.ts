@@ -27,6 +27,8 @@ import { DUE_FILTERS, type DueFilter } from './dueState';
 /** URL 引数の名前。画面・試験の両方がここを読む（綴りを2か所に書かない） */
 export const DUE_PARAM = 'due';
 export const USER_PARAM = 'user';
+/** 案件の担当者（`projects.assigned_to`）。記録者の `?user=` とは別の引数 */
+export const OWNER_PARAM = 'owner';
 
 /** `?due=` を読む。無い・契約に無い綴りは `all`（既定） */
 export function readDue(sp: URLSearchParams): DueFilter {
@@ -40,6 +42,14 @@ export function readDue(sp: URLSearchParams): DueFilter {
  */
 export function readUser(sp: URLSearchParams): string {
   return (sp.get(USER_PARAM) ?? '').trim();
+}
+
+/**
+ * `?owner=` を読む（**案件の担当者**の id・サーバーには `owner_id` として渡す）。
+ * 記録者の `?user=` とは別の絞り込み。無いときは空文字＝「すべて」。
+ */
+export function readOwner(sp: URLSearchParams): string {
+  return (sp.get(OWNER_PARAM) ?? '').trim();
 }
 
 /**
@@ -64,8 +74,13 @@ export function withUser(sp: URLSearchParams, userId: string): URLSearchParams {
   return withParam(sp, USER_PARAM, userId.trim() || null);
 }
 
+/** 案件の担当者を書き込む。空文字（すべて）は引数を消す */
+export function withOwner(sp: URLSearchParams, ownerId: string): URLSearchParams {
+  return withParam(sp, OWNER_PARAM, ownerId.trim() || null);
+}
+
 /**
- * 「すべて解除」で消す引数（`due` と `user` だけ）。**`tab` / `view` / `sort` は残す。**
+ * 「すべて解除」で消す引数（`due` と `user` と `owner` だけ）。**`tab` / `view` / `sort` は残す。**
  *
  * ⚠️ `sort` を消さないこと。`?sort=next_action` だけで来た入口は `view` を持たず、
  * `ActivityLogPage.tsx` は「`view` が無くて `sort=next_action` なら時系列」と決めている。
@@ -76,6 +91,7 @@ export function withoutFilters(sp: URLSearchParams): URLSearchParams {
   const next = new URLSearchParams(sp);
   next.delete(DUE_PARAM);
   next.delete(USER_PARAM);
+  next.delete(OWNER_PARAM);
   return next;
 }
 
@@ -98,12 +114,14 @@ export const ALL_ASSIGNEES = 'all';
  *
  * @param users    `GET /users` の返り（名前順）
  * @param meId     自分の id（`useAuth().currentUser?.id`）。未ログインなら `null`
- * @param selected 今の `?user=`（空文字＝すべて）
+ * @param selected 今の `?user=` / `?owner=`（空文字＝すべて）
+ * @param missingLabel 一覧に居ない id を残すときの名前。記録者と担当者で言い分ける
  */
 export function assigneeOptions(
   users: AssigneeUser[],
   meId: string | null | undefined,
   selected: string,
+  missingLabel = '指定の記録者',
 ): AssigneeOption[] {
   const opts: AssigneeOption[] = [{ value: ALL_ASSIGNEES, label: 'すべて' }];
   const me = meId ? users.find((u) => u.id === meId) : undefined;
@@ -112,7 +130,7 @@ export function assigneeOptions(
     if (u.id !== meId) opts.push({ value: u.id, label: u.name });
   }
   if (selected && !opts.some((o) => o.value === selected)) {
-    opts.push({ value: selected, label: '指定の記録者' });
+    opts.push({ value: selected, label: missingLabel });
   }
   return opts;
 }

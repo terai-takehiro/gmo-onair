@@ -337,7 +337,7 @@ export function useCreateTask() {
 
 /** 期限を「7/31 17:00」形式で。**分まで出す** (イズム: 何月何日何時何分まで) */
 export function formatDue(v: string | null): string {
-  if (!v) return '期限なし';
+  if (!v) return '期限未設定';
   const d = new Date(v.replace(' ', 'T'));
   if (Number.isNaN(d.getTime())) return v;
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -346,7 +346,7 @@ export function formatDue(v: string | null): string {
 
 /** 期限を「9月8日 18:00」形式で。詳細パネルなど**1件だけ出す場所**で使う */
 export function formatDueLong(v: string | null): string {
-  if (!v) return '期限なし';
+  if (!v) return '期限未設定';
   const d = new Date(v.replace(' ', 'T'));
   if (Number.isNaN(d.getTime())) return v;
   const pad = (n: number) => String(n).padStart(2, '0');

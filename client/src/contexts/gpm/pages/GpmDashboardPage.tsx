@@ -194,7 +194,7 @@ export default function GpmDashboardPage() {
                             </span>
                             <span className="w-28 shrink-0 text-right">
                               <span className={cn('text-sub-sm font-number block', dueTone(due, today))}>
-                                {dueLabel(due, today) ?? '期限なし'}
+                                {dueLabel(due, today) ?? '期限未設定'}
                               </span>
                               {p.open_items > 0 && (
                                 <span className="text-sub-sm font-number block text-destructive">

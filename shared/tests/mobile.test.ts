@@ -43,8 +43,8 @@ describe('duePresets — 期限のプリセット', () => {
 describe('dueLabel — 期限の見え方', () => {
   const today = '2026-08-07';
 
-  it('期限なし', () => {
-    expect(dueLabel(null, today)).toEqual({ text: '期限なし', tone: 'none' });
+  it('期限未設定', () => {
+    expect(dueLabel(null, today)).toEqual({ text: '期限未設定', tone: 'none' });
     expect(dueLabel('', today).tone).toBe('none');
   });
 

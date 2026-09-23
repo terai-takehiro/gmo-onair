@@ -42,7 +42,7 @@ export function GanttLeftRow({ r, today }: { r: RowItem; today: string }) {
             {r.task.title}
           </span>
           {late > 0 && <span className="text-badge shrink-0 text-destructive">超過</span>}
-          {!r.end && <span className="text-badge shrink-0 text-muted-foreground">期限なし</span>}
+          {!r.end && <span className="text-badge shrink-0 text-muted-foreground">期限未設定</span>}
         </>
       )}
     </div>
