@@ -55,7 +55,22 @@ export interface ListProductionDocsResult {
   note: string;
 }
 
-const FETCH_CAP = 200;
+/**
+ * 1種類あたり、要求されたページを組み立てるのに要る件数だけ取る（page × limit）。
+ * 以前は種類ごとに一律 200 件で打ち切ってから件数とページを数えていたため、200 件を超えると
+ * 後ろのページが空になり、total も 200 に張り付いていた（PR #737 レビュー指摘）。
+ * 件数は別に COUNT で数える。3種類を更新日時の新しい順に混ぜるので、先頭 page × limit 件は
+ * 各種類の先頭 page × limit 件の中に必ず入る。
+ */
+async function fetchPage(baseSql: string, params: unknown[], orderCol: string, need: number): Promise<{ rows: Record<string, unknown>[]; total: number }> {
+  const [countRow, rows] = await Promise.all([
+    queryOne(`SELECT COUNT(*)::int AS n FROM (${baseSql}) AS x`, params),
+    queryAll(`${baseSql} ORDER BY ${orderCol} DESC LIMIT ?`, [...params, need]),
+  ]);
+  return { rows, total: Number(countRow?.n) || 0 };
+}
+
+interface FetchResult { rows: ProductionDocRow[]; total: number }
 
 async function resolveProjectId(input: ListProductionDocsInput): Promise<string | null | undefined> {
   if (input.projectId) return input.projectId;
@@ -68,8 +83,8 @@ function sanitizeSearch(q: string): string {
   return q.slice(0, 100).replace(/[%_\\]/g, '\\$&');
 }
 
-async function fetchSheets(actor: AccessUser, projectId: string | null | undefined, input: ListProductionDocsInput): Promise<ProductionDocRow[]> {
-  if (projectId === null) return []; // gls_number が解決できなかった
+async function fetchSheets(actor: AccessUser, projectId: string | null | undefined, input: ListProductionDocsInput): Promise<FetchResult> {
+  if (projectId === null) return { rows: [], total: 0 }; // gls_number が解決できなかった
   let sql = `
     SELECT d.id, d.doc_no, d.title, d.project_id, p.gls_number, d.broadcast_date AS date,
            d.status,
@@ -88,11 +103,8 @@ async function fetchSheets(actor: AccessUser, projectId: string | null | undefin
   if (projectId) { sql += ' AND d.project_id = ?'; params.push(projectId); }
   if (input.date) { sql += ' AND d.broadcast_date = ?'; params.push(input.date); }
   if (input.q) { sql += " AND (d.title ILIKE ? ESCAPE '\\' OR d.doc_no ILIKE ? ESCAPE '\\')"; const safe = `%${sanitizeSearch(input.q)}%`; params.push(safe, safe); }
-  sql += ' ORDER BY d.updated_at DESC LIMIT ?';
-  params.push(FETCH_CAP);
-
-  const rows = await queryAll(sql, params);
-  return rows.map((r) => ({
+  const { rows, total } = await fetchPage(sql, params, 'd.updated_at', input.page * input.limit);
+  return { total, rows: rows.map((r) => ({
     app: 'sheet' as const,
     id: r.id as string,
     docNo: (r.doc_no as string) ?? null,
@@ -105,11 +117,11 @@ async function fetchSheets(actor: AccessUser, projectId: string | null | undefin
     updatedAt: new Date(r.updated_at as string).toISOString(),
     updatedByName: (r.updated_by_name as string) ?? null,
     url: docPathOf('sheet', r.id as string),
-  }));
+  })) };
 }
 
-async function fetchSchedules(actor: AccessUser, projectId: string | null | undefined, input: ListProductionDocsInput): Promise<ProductionDocRow[]> {
-  if (projectId === null) return [];
+async function fetchSchedules(actor: AccessUser, projectId: string | null | undefined, input: ListProductionDocsInput): Promise<FetchResult> {
+  if (projectId === null) return { rows: [], total: 0 };
   let sql = `
     SELECT s.id, s.doc_no, s.title, s.project_id, p.gls_number,
            to_char(s.service_date, 'YYYY-MM-DD') AS date, s.status, s.updated_at, u.name AS updated_by_name
@@ -126,11 +138,8 @@ async function fetchSchedules(actor: AccessUser, projectId: string | null | unde
   if (projectId) { sql += ' AND s.project_id = ?'; params.push(projectId); }
   if (input.date) { sql += ' AND s.service_date = ?'; params.push(input.date); }
   if (input.q) { sql += " AND (s.title ILIKE ? ESCAPE '\\' OR s.doc_no ILIKE ? ESCAPE '\\')"; const safe = `%${sanitizeSearch(input.q)}%`; params.push(safe, safe); }
-  sql += ' ORDER BY s.updated_at DESC LIMIT ?';
-  params.push(FETCH_CAP);
-
-  const rows = await queryAll(sql, params);
-  return rows.map((r) => ({
+  const { rows, total } = await fetchPage(sql, params, 's.updated_at', input.page * input.limit);
+  return { total, rows: rows.map((r) => ({
     app: 'schedule' as const,
     id: r.id as string,
     docNo: (r.doc_no as string) ?? null,
@@ -142,7 +151,7 @@ async function fetchSchedules(actor: AccessUser, projectId: string | null | unde
     updatedAt: new Date(r.updated_at as string).toISOString(),
     updatedByName: (r.updated_by_name as string) ?? null,
     url: docPathOf('schedule', r.id as string),
-  }));
+  })) };
 }
 
 /**
@@ -150,8 +159,8 @@ async function fetchSchedules(actor: AccessUser, projectId: string | null | unde
  * `projects.assigned_to` / 管理者。明示共有は無い）を1本の SQL に展開したもの ——
  * `tech-doc.service.ts` の `listTechDocs` と同じ行条件（N+1 を作らない）。
  */
-async function fetchTechDocs(actor: AccessUser, projectId: string | null | undefined, input: ListProductionDocsInput): Promise<ProductionDocRow[]> {
-  if (projectId === null) return [];
+async function fetchTechDocs(actor: AccessUser, projectId: string | null | undefined, input: ListProductionDocsInput): Promise<FetchResult> {
+  if (projectId === null) return { rows: [], total: 0 };
   let sql = `
     SELECT t.id, t.doc_no, t.title, t.project_id, p.gls_number, t.status, t.updated_at, u.name AS updated_by_name
     FROM qsheet_tech_docs t
@@ -171,11 +180,8 @@ async function fetchTechDocs(actor: AccessUser, projectId: string | null | undef
   // 資料そのものは日を持たない（作業日はスタッフ行が持つ）ので、その日の作業日を持つ資料に当てる
   if (input.date) { sql += ' AND EXISTS (SELECT 1 FROM qsheet_tech_staff_rows sr WHERE sr.tech_doc_id = t.id AND sr.work_date = ?)'; params.push(input.date); }
   if (input.q) { sql += " AND (t.title ILIKE ? ESCAPE '\\' OR t.doc_no ILIKE ? ESCAPE '\\')"; const safe = `%${sanitizeSearch(input.q)}%`; params.push(safe, safe); }
-  sql += ' ORDER BY t.updated_at DESC LIMIT ?';
-  params.push(FETCH_CAP);
-
-  const rows = await queryAll(sql, params);
-  return rows.map((r) => ({
+  const { rows, total } = await fetchPage(sql, params, 't.updated_at', input.page * input.limit);
+  return { total, rows: rows.map((r) => ({
     app: 'tech' as const,
     id: r.id as string,
     docNo: (r.doc_no as string) ?? null,
@@ -187,20 +193,22 @@ async function fetchTechDocs(actor: AccessUser, projectId: string | null | undef
     updatedAt: new Date(r.updated_at as string).toISOString(),
     updatedByName: (r.updated_by_name as string) ?? null,
     url: docPathOf('tech', r.id as string),
-  }));
+  })) };
 }
+
+const EMPTY: FetchResult = { rows: [], total: 0 };
 
 export async function listProductionDocs(actor: AccessUser, input: ListProductionDocsInput): Promise<ListProductionDocsResult> {
   const projectId = await resolveProjectId(input);
   const wants = (app: MiniAppDocKey) => !input.app || input.app === app;
   const [sheets, schedules, techDocs] = await Promise.all([
-    wants('sheet') ? fetchSheets(actor, projectId, input) : Promise.resolve([]),
-    wants('schedule') ? fetchSchedules(actor, projectId, input) : Promise.resolve([]),
-    wants('tech') ? fetchTechDocs(actor, projectId, input) : Promise.resolve([]),
+    wants('sheet') ? fetchSheets(actor, projectId, input) : Promise.resolve(EMPTY),
+    wants('schedule') ? fetchSchedules(actor, projectId, input) : Promise.resolve(EMPTY),
+    wants('tech') ? fetchTechDocs(actor, projectId, input) : Promise.resolve(EMPTY),
   ]);
 
-  const merged = [...sheets, ...schedules, ...techDocs].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
-  const total = merged.length;
+  const merged = [...sheets.rows, ...schedules.rows, ...techDocs.rows].sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1));
+  const total = sheets.total + schedules.total + techDocs.total;
   const start = (input.page - 1) * input.limit;
   const docs = merged.slice(start, start + input.limit);
 

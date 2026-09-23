@@ -14,10 +14,15 @@ function makeDb(rowsByTable) {
   return {
     calls,
     db: {
-      queryOne: async () => undefined,
+      // 件数（fetchPage の COUNT）。rowsByTable の件数、または countByTable で上書きした件数を返す
+      queryOne: async (sql) => {
+        const table = Object.keys(rowsByTable).find((t) => sql.includes(`FROM ${t} `));
+        const n = table ? (rowsByTable.__count?.[table] ?? rowsByTable[table].length) : 0;
+        return { n };
+      },
       queryAll: async (sql, params) => {
         calls.push({ sql, params });
-        const table = Object.keys(rowsByTable).find((t) => sql.includes(`FROM ${t} `));
+        const table = Object.keys(rowsByTable).filter((t) => t !== '__count').find((t) => sql.includes(`FROM ${t} `));
         return table ? rowsByTable[table] : [];
       },
     },
@@ -85,4 +90,13 @@ test('date 絞り込みは技術資料では作業日（スタッフ行）で当
   await listProductionDocs({ id: 'admin', role: 'system_admin' }, { ...base, app: 'tech', date: '2026-10-15' });
   assert.match(calls[0].sql, /qsheet_tech_staff_rows sr WHERE sr\.tech_doc_id = t\.id AND sr\.work_date = \?/);
   assert.ok(calls[0].params.includes('2026-10-15'));
+});
+
+test('件数は COUNT で数え、要求されたページに要る件数（page × limit）だけ取る（200件で打ち切らない）', async () => {
+  const { listProductionDocs, calls } = await loadService({ qsheet_tech_docs: [TECH_ROW], __count: { qsheet_tech_docs: 250 } });
+  const res = await listProductionDocs({ id: 'admin', role: 'system_admin' }, { limit: 100, page: 3, app: 'tech' });
+  assert.equal(res.pagination.total, 250, '200 に張り付かない');
+  assert.equal(res.pagination.totalPages, 3);
+  const { params } = calls[0];
+  assert.equal(params[params.length - 1], 300, '3ページ目を組むのに要る 300 件を取る');
 });
