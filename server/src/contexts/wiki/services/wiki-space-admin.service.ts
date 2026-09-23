@@ -22,7 +22,7 @@
  * そのスペースが自分から見えなくなり、戻す手立てが無くなるためです。
  */
 import { v4 as uuid } from 'uuid';
-import { queryAll, queryOne, execute, withTransaction, type Row, type TxClient } from '../../../shared/db/connection';
+import { queryAll, queryOne, withTransaction, type Row, type TxClient } from '../../../shared/db/connection';
 import { NotFoundError, ValidationError, checkOptimisticLock } from '../../qsheet/services/httpErrors';
 import { canReadSpace, readableSpaceIds, type WikiUser } from './wiki-access.service';
 
@@ -347,10 +347,15 @@ export async function addSpaceMember(user: WikiUser, spaceId: string, userId: st
   await assertManageableSpace(user, spaceId);
   const target = await cleanActiveUser(userId, '追加する人');
   if (!target) throw new ValidationError('追加する人を選んでください。');
-  await execute(
-    'INSERT INTO wiki_space_members (space_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING',
-    [spaceId, target],
-  );
+  // ⚠️ 錠を取ったあとで読めるかを見直してから入れる（`lockManageableSpaceTx`・#740 の Codex 指摘・P1。
+  //    外された直後の manager がメンバーを足せないように。編集・削除・メンバー削除と同じ）
+  await withTransaction(async (tx) => {
+    await lockManageableSpaceTx(tx, user, spaceId);
+    await tx.execute(
+      'INSERT INTO wiki_space_members (space_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING',
+      [spaceId, target],
+    );
+  });
   return listSpaceMembers(user, spaceId);
 }
 
