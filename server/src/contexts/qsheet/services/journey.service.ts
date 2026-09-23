@@ -10,6 +10,14 @@
  * `frames[]` は段4で `qsheet_schedule_items` から埋まるようになった（§8）。
  * `canAccessSchedule` を通した表のものだけを返す（N+1 を避けるため SQL の行条件に埋める）。
  *
+ * ⚠️ `days[].docs` に載るのは進行台本とスケジュール表だけ。技術資料（`qsheet_tech_docs`）・
+ *    運営マニュアル・会場図面は**意図して載せない**（tech-docs.md §7-5）。技術資料は1つの資料が
+ *    複数の作業日を持ち（§13-4 の決定 A・作業日はスタッフ行が持つ）「その資料の日」が無い。
+ *    日が無い束（`date: null`）に入れると、技術資料しか無い案件にも「日が決まっていない」の
+ *    カードが増え、進行台本・スケジュール表の「まだありません」を空振りで案内してしまう。
+ *    件数はハブのタイル（`MiniAppTiles.tsx`）が別クエリで数え、MCP では
+ *    `list_production_docs`（`production/doc-list.service.ts`）が技術資料も返す。
+ *
  * ⚠️ `jsonb_array_length` は配列でない値に投げると例外になる。台本の
  * `data.sections` は Yjs が書くのでサーバーはスキーマを検証しておらず、
  * 壊れた行が1件でもあると一覧全体が 500 で落ちる。**必ず `jsonb_typeof` で

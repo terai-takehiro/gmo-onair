@@ -28,7 +28,7 @@ const httpErrorsMock = { NotFoundError, ValidationError, ConflictError, LockErro
  * `IS DISTINCT FROM` が含まれているかを固定してから、その意味どおりに動かす——退行
  * （無条件 `= NULL` に戻す）を検出できるようにする。
  */
-function makeLockDb(initial, { table, idCol = 'id' }) {
+function makeLockDb(initial, { table }) {
   const row = { ...initial };
   return {
     row,

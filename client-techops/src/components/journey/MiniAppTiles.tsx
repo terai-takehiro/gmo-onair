@@ -75,8 +75,8 @@ export default function MiniAppTiles({ scope, id, days }: MiniAppTilesProps) {
   });
   const venueCount = venueLayoutsQuery.isSuccess ? venueLayoutsQuery.data.length : null;
 
-  // 技術資料（tech-docs.md §7-5）。`days[].docs` には出ない（`doc-list.service.ts` が
-  // 読むのは進行台本とスケジュール表だけ）ので、会場図面と同じく別クエリで数える
+  // 技術資料（tech-docs.md §7-5）。`days[].docs` には出ない（資料が複数の作業日を持ち
+  // 「その資料の日」が無いため。`journey.service.ts` 冒頭）ので、会場図面と同じく別クエリで数える
   const techDocsQuery = useQuery({
     queryKey: ["tech-docs", "list", scope, id],
     queryFn: () => techApi.listTechDocs(scope === "project" ? { project: id } : { program: id }),
