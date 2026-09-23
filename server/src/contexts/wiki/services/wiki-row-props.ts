@@ -19,6 +19,7 @@
  */
 import { queryAll, queryOne } from '../../../shared/db/connection';
 import { ValidationError } from '../../qsheet/services/httpErrors';
+import { WIKI_ELIGIBLE } from './wiki-access.service';
 import {
   WIKI_ONAIR_KINDS,
   isValidPropValue,
@@ -179,5 +180,42 @@ export async function checkedRowProps(
   if (!items) return props;
   const checked = validateRowProps(items, props as Record<string, WikiPropValue>);
   await assertOnairTargetsExist(items, checked);
+  await assertPersonsEligible(pageId, items, checked);
   return checked;
+}
+
+/**
+ * 人の項目に**新しく入れた人**が、Wiki を使える在籍中の人か（`WIKI_ELIGIBLE`）。
+ *
+ * ⚠️ **画面の候補を絞るだけでは足りません**（#740 の Codex 指摘・P2）。`PATCH` で `props` を
+ * 直接送れば、停止中・Wiki の権限が無い・存在しない人の id も入り、画面には id のまま出ていました。
+ * **いま入っている値と同じなら見ません** — あとから停止・権限を外された人が入った行でも、
+ * ほかの項目の保存を断らないためです。
+ */
+async function assertPersonsEligible(
+  pageId: string,
+  items: WikiItem[],
+  props: Record<string, WikiPropValue>,
+): Promise<void> {
+  const personItems = items.filter((i) => i.type === 'person');
+  if (personItems.length === 0) return;
+  const current = await queryOne('SELECT props FROM wiki_pages WHERE id = ?', [pageId]);
+  const before = (current?.props ?? {}) as Record<string, unknown>;
+  const wanted = new Map<string, string>();
+  for (const item of personItems) {
+    const value = props[item.id];
+    if (typeof value !== 'string' || !value || value === before[item.id]) continue;
+    wanted.set(value, item.name);
+  }
+  if (wanted.size === 0) return;
+  const found = await queryAll(
+    `SELECT u.id FROM users u WHERE u.id = ANY(?) AND ${WIKI_ELIGIBLE}`,
+    [[...wanted.keys()]],
+  );
+  const ok = new Set(found.map((r) => String(r.id)));
+  for (const [id, name] of wanted) {
+    if (!ok.has(id)) {
+      throw new ValidationError(`「${name}」に選んだ人が見つからないか、Wiki を使えません。選び直してください。`);
+    }
+  }
 }
