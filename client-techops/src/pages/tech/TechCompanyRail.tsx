@@ -48,7 +48,7 @@ export function TechCompanyRail({
         </Button>
       )}
       <p className="px-2.5 pb-1 pt-3 text-sub-sm text-muted-foreground">
-        GMOグローバルスタジオは社内の人、ほかは協力会社です
+        GMOグローバルスタジオは社内、ほかは協力会社です。会社名の編集は、案件管理の取引先で行います
       </p>
     </aside>
   );

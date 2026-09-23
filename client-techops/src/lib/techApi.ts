@@ -238,25 +238,26 @@ export async function updatePatchJack(panelId: string, jackId: string, patch: Up
   return res.data.data;
 }
 
-// ── 会社と人（⑥・読みは reader・編集は manager） ──────────────
+// ── 会社と人（⑥・読みは reader・編集は manager。会社は取引先 companies） ──
 
 export async function listTechCompanies(): Promise<TechCompany[]> {
   const res = await api.get<Envelope<TechCompany[]>>("/techops/tech-companies");
   return res.data.data;
 }
 
-export type TechCompanyPayload = Partial<Omit<TechCompany, "id" | "person_count">> & { name?: string };
+/**
+ * 会社を足すときの中身。会社は**案件管理の取引先（`companies`）**そのもので（§13-5）、
+ * ここから足すと取引先に仕入先として登録される（同じ名前があればそれが返る）。
+ * 名前の変更・削除は案件管理で行うので、techops には口が無い。
+ */
+export interface TechCompanyPayload {
+  name: string;
+  short_name?: string;
+}
 
 export async function createTechCompany(payload: TechCompanyPayload): Promise<TechCompany> {
   const res = await api.post<Envelope<TechCompany>>("/techops/tech-companies", payload);
   return res.data.data;
-}
-export async function updateTechCompany(id: string, patch: TechCompanyPayload): Promise<TechCompany> {
-  const res = await api.patch<Envelope<TechCompany>>(`/techops/tech-companies/${id}`, patch);
-  return res.data.data;
-}
-export async function deleteTechCompany(id: string): Promise<void> {
-  await api.delete(`/techops/tech-companies/${id}`);
 }
 
 export interface ListTechPersonsParams {

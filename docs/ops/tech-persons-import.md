@@ -1,8 +1,9 @@
 # 技術人員の初期取り込み（一度きり）
 
-**最終確認: 2026-09-22。** 一次情報は `scripts/tech-persons-import.mjs`・
-`docs/design/v4/tech-docs.md` §9-2（決めごとの正）・`server/src/shared/db/migrations/305_tech_docs.sql`
-（`qsheet_tech_companies`・`qsheet_tech_persons`）。
+**最終確認: 2026-09-23。** 一次情報は `scripts/tech-persons-import.mjs`・
+`docs/design/v4/tech-docs.md` §9-2（決めごとの正）・§13-5（会社は取引先）・
+`server/src/shared/db/migrations/305_tech_docs.sql`（`qsheet_tech_persons`）・
+`306_tech_persons_companies.sql`（会社を案件管理の取引先 `companies` に寄せた）。
 
 ## これは何か
 
@@ -83,7 +84,10 @@ node scripts/tech-persons-import.mjs --input <file.json|file.csv> [--dry-run] [-
    **発行日 (`issueDate`) が新しいほう**（同着なら `(ver2)`／`(Ver2)` が付くファイル名のほう）だけを採用する。
    負けたシートの行は「改訂で上書きされた」として件数に出るだけで取り込まない
 4. (会社, 氏名) ごとに役職を頻度順に集約し、`main_roles` に入れる
-5. 会社は**名前の完全一致**で照合する。無ければ作る（`short_name` は `株式会社`／`有限会社` を削った形）
+5. 会社は**案件管理の取引先（`companies`）**。削除されていない取引先と**名前の完全一致**で照合し、
+   無ければ**仕入先**（`is_vendor = TRUE`・`is_customer = FALSE`）として作る
+   （`short_name` は `株式会社`／`有限会社` を削った形・`is_gmo_group` は社名から見立てる）。
+   一致した既存の取引先は**書き換えない**（案件管理の持ち物。§13-5）
 6. 人は **(会社, 氏名)** の一致で照合する。無ければ作る。あれば `main_roles` を「既存の並び＋今回の頻度」で
    合わせ直して更新するだけで、**`kana`・`active`・`note` は上書きしない**。`note` に「取り込み: n 回」のような
    文言も**書かない**（参加回数は `qsheet_tech_staff_rows` を数えて出す設計。§9-2）
@@ -108,13 +112,13 @@ node scripts/tech-persons-import.mjs --input /path/to/member-lists.json \
 ## 確かめ方
 
 ```sql
--- 会社が二重に増えていないか
-SELECT name, count(*) FROM qsheet_tech_companies WHERE deleted_at IS NULL GROUP BY name HAVING count(*) > 1;
+-- 取引先が二重に増えていないか
+SELECT name, count(*) FROM companies WHERE deleted_at IS NULL GROUP BY name HAVING count(*) > 1;
 
 -- 人数と役職の中身をざっと見る
 SELECT c.name AS company, p.name, p.main_roles
 FROM qsheet_tech_persons p
-JOIN qsheet_tech_companies c ON c.id = p.tech_company_id
+JOIN companies c ON c.id = p.company_id
 WHERE p.deleted_at IS NULL
 ORDER BY c.name, p.name;
 

@@ -27,7 +27,8 @@
  *   - JSON は (event, dates) が同じシート同士を「同じ回の改訂」とみなし、
  *     発行日 (issueDate) が新しいほう（同着なら (ver2)/(Ver2) の付くほう）だけを採用する
  *   - (会社, 氏名) ごとに役職を頻度順に集約し qsheet_tech_persons.main_roles に入れる
- *   - 会社は名前の完全一致で照合。無ければ作る（short_name は 株式会社/有限会社 を削った形）
+ *   - 会社は案件管理の取引先（companies）。削除されていない取引先と名前の完全一致で照合し、
+ *     無ければ仕入先（is_vendor）として作る（short_name は 株式会社/有限会社 を削った形。§13-5）
  *   - 人は (会社, 氏名) の一致で照合。無ければ作る。あれば main_roles だけ更新し、
  *     kana・active・note は既にある値を上書きしない（note に「取り込み: n 回」のような
  *     文言も書かない。参加回数は qsheet_tech_staff_rows から数える設計 — §9-2）
@@ -258,30 +259,40 @@ function loadFromCsv(text) {
 
 // ── DB ────────────────────────────────────────────────────
 
+/**
+ * 会社は**案件管理の取引先（companies）そのもの**（tech-docs.md §13-5・migration 306）。
+ * 削除されていない取引先を名前の完全一致で探し（古い順に1件）、無ければ仕入先として足す。
+ * ⚠️ 一致した既存の取引先は書き換えない（案件管理の持ち物。印も短い名前も触らない）。
+ */
 async function findCompanyId(client, name) {
   const { rows } = await client.query(
-    `SELECT id FROM qsheet_tech_companies WHERE name = $1 AND deleted_at IS NULL ORDER BY created_at ASC, id ASC LIMIT 1`,
+    `SELECT id FROM companies WHERE name = $1 AND deleted_at IS NULL ORDER BY created_at ASC, id ASC LIMIT 1`,
     [name],
   );
   return rows[0]?.id ?? null;
 }
 
+/** 社名に GMO（全角も）が入っているか。server/src/shared/services/gmo-group.ts と同じ見立て */
+function looksLikeGmoGroup(name) {
+  const normalized = String(name || '')
+    .replace(/[Ａ-Ｚａ-ｚ]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0))
+    .toUpperCase();
+  return normalized.includes('GMO');
+}
+
 async function createCompany(client, name) {
   const id = crypto.randomUUID();
-  const { rows } = await client.query(
-    `SELECT COALESCE(MAX(sort_order), 0) + 1 AS next FROM qsheet_tech_companies`,
-  );
-  const sortOrder = rows[0]?.next ?? 1;
   await client.query(
-    `INSERT INTO qsheet_tech_companies (id, name, short_name, sort_order) VALUES ($1, $2, $3, $4)`,
-    [id, name, shortNameOf(name), sortOrder],
+    `INSERT INTO companies (id, name, short_name, is_customer, is_vendor, is_gmo_group)
+     VALUES ($1, $2, $3, FALSE, TRUE, $4)`,
+    [id, name, shortNameOf(name), looksLikeGmoGroup(name)],
   );
   return id;
 }
 
 async function findPerson(client, companyId, name) {
   const { rows } = await client.query(
-    `SELECT id, main_roles FROM qsheet_tech_persons WHERE tech_company_id = $1 AND name = $2 AND deleted_at IS NULL ORDER BY created_at ASC, id ASC LIMIT 1`,
+    `SELECT id, main_roles FROM qsheet_tech_persons WHERE company_id = $1 AND name = $2 AND deleted_at IS NULL ORDER BY created_at ASC, id ASC LIMIT 1`,
     [companyId, name],
   );
   return rows[0] ?? null;
@@ -290,7 +301,7 @@ async function findPerson(client, companyId, name) {
 async function createPerson(client, companyId, name, roles, kana) {
   const id = crypto.randomUUID();
   await client.query(
-    `INSERT INTO qsheet_tech_persons (id, tech_company_id, name, kana, main_roles) VALUES ($1, $2, $3, $4, $5)`,
+    `INSERT INTO qsheet_tech_persons (id, company_id, name, kana, main_roles) VALUES ($1, $2, $3, $4, $5)`,
     [id, companyId, name, kana || '', roles],
   );
   return id;

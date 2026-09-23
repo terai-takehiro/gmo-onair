@@ -9,7 +9,7 @@ import { PageHeader } from "@gmo-onair/shared/src/client/ui/pageHeader";
 import { Row, RowHeader, RowMain, RowSlot } from "@gmo-onair/shared/src/client/ui/row";
 import { confirmAction } from "@gmo-onair/shared/src/client/ui/confirm";
 import { FilterChips } from "@gmo-onair/shared/src/client/ui/filterChips";
-import { TECH_ROLES } from "@gmo-onair/shared/src/tech/roles";
+import { TECH_ROLES, roleName } from "@gmo-onair/shared/src/tech/roles";
 import type { TechPerson } from "@gmo-onair/shared/src/tech/types";
 import { Button } from "@/components/ui/button";
 import BufferedInput from "@/components/editor/BufferedInput";
@@ -39,9 +39,27 @@ export default function TechPersonsPage() {
   const [addOpen, setAddOpen] = useState(false);
   const [companyOpen, setCompanyOpen] = useState(false);
 
+  // 会社を足した直後は、その会社を選ぶ（人がまだ0人なので、選ばないと左の並びに出ない）
+  const [pendingCompanyName, setPendingCompanyName] = useState<string | null>(null);
+
   useEffect(() => {
+    if (pendingCompanyName !== null) {
+      const added = companies.find((c) => c.name === pendingCompanyName);
+      if (added) {
+        setCompanyId(added.id);
+        setPendingCompanyName(null);
+        return;
+      }
+    }
     if (companyId === "" && companies.length > 0) setCompanyId(companies[0].id);
-  }, [companies, companyId]);
+  }, [companies, companyId, pendingCompanyName]);
+
+  // 会社は取引先（companies）そのもので、候補には仕入先がすべて入る（§13-5）。
+  // 左の並びは「人がいる会社」と、いま選んでいる会社だけにする（仕入先全件を並べない）
+  const railCompanies = useMemo(
+    () => companies.filter((c) => c.person_count > 0 || c.id === companyId),
+    [companies, companyId],
+  );
 
   const inCompany = masters.persons({ company: companyId || undefined, include_inactive: 1 });
   const rows = useMemo(
@@ -54,7 +72,7 @@ export default function TechPersonsPage() {
   const removePerson = async (person: TechPerson) => {
     const ok = await confirmAction({
       title: `「${person.name}」を削除しますか？`,
-      description: "これまでの技術資料に入っている名前は残ります。",
+      description: "これまでの技術資料に記載済みの名前は残ります。",
       confirmLabel: "削除する",
       tone: "danger",
     });
@@ -86,7 +104,7 @@ export default function TechPersonsPage() {
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
         <TechCompanyRail
-          companies={companies}
+          companies={railCompanies}
           value={companyId}
           onChange={setCompanyId}
           canEdit={canEdit}
@@ -152,7 +170,7 @@ export default function TechPersonsPage() {
 
             {rows.length === 0 && (
               <p className="px-4 py-6 text-sub text-muted-foreground">
-                この条件に合う人がいません。検索の言葉を減らすか、右上の「追加」で登録してください
+                この条件に合う人がいません。検索条件を減らすか、右上の「追加」で登録してください
               </p>
             )}
 
@@ -171,11 +189,16 @@ export default function TechPersonsPage() {
             数字はその役職で担当したことのある人数
           </p>
           {TECH_ROLES.map((r) => (
-            <div key={r} className="flex items-center gap-2 border-b border-border-faint py-1.5 last:border-b-0">
+            <div
+              key={r}
+              title={roleName(r) || undefined}
+              className="flex items-center gap-2 border-b border-border-faint py-1.5 last:border-b-0"
+            >
               <span className="w-14 shrink-0 rounded-badge-xs bg-muted px-1.5 py-0.5 text-center font-number text-badge text-muted-foreground">
                 {r}
               </span>
-              <span className="flex-1" />
+              {/* 正式名称（確かなものだけ。§13-3 で CA＝カメラアシスタント） */}
+              <span className="min-w-0 flex-1 truncate text-sub-sm text-muted-foreground">{roleName(r)}</span>
               <span className="font-number text-sub text-foreground">{roleCounts[r] ?? 0}</span>
             </div>
           ))}
@@ -192,7 +215,11 @@ export default function TechPersonsPage() {
       <TechCompanyDialog
         open={companyOpen}
         onOpenChange={setCompanyOpen}
-        onSubmit={(input) => masters.createCompany(input)}
+        onSubmit={async (input) => {
+          const ok = await masters.createCompany(input);
+          if (ok) setPendingCompanyName(input.name);
+          return ok;
+        }}
       />
     </PageShell>
   );

@@ -42,8 +42,8 @@ export interface UseTechMastersResult {
   createPerson: (payload: techApi.TechPersonPayload) => Promise<boolean>;
   updatePerson: (id: string, patch: techApi.TechPersonPayload) => Promise<boolean>;
   deletePerson: (id: string) => Promise<boolean>;
+  /** 取引先（`companies`）に仕入先として足す。名前の変更・削除は案件管理で行う（§13-5） */
   createCompany: (payload: techApi.TechCompanyPayload) => Promise<boolean>;
-  updateCompany: (id: string, patch: techApi.TechCompanyPayload) => Promise<boolean>;
   createPanel: (payload: techApi.CreatePatchPanelPayload) => Promise<boolean>;
   updatePanel: (id: string, patch: techApi.UpdatePatchPanelPayload) => Promise<boolean>;
   updateJack: (panelId: string, jackId: string, patch: techApi.UpdatePatchJackPayload) => Promise<boolean>;
@@ -209,12 +209,6 @@ export function useTechMasters(): UseTechMastersResult {
     [runMaster, reloadCompanies],
   );
 
-  const updateCompany = useCallback(
-    (id: string, patch: techApi.TechCompanyPayload) =>
-      runMaster(() => techApi.updateTechCompany(id, patch), reloadCompanies, "会社を保存できませんでした。"),
-    [runMaster, reloadCompanies],
-  );
-
   const createPanel = useCallback(
     (payload: techApi.CreatePatchPanelPayload) =>
       runMaster(() => techApi.createPatchPanel(payload), reloadPanels, "パッチ盤を追加できませんでした。"),
@@ -253,7 +247,7 @@ export function useTechMasters(): UseTechMastersResult {
         await Promise.all([reloadPanels(), reloadDevices()]);
         return true;
       } catch {
-        notifyError("パッチ番号を保存できませんでした。", { description: "少し待ってから、もう一度お試しください。最新の内容を読み込み直します。" });
+        notifyError("パッチ番号を保存できませんでした。", { description: "少し待ってから、もう一度お試しください。最新の内容を再読み込みします。" });
         try {
           const detail = await techApi.getPatchPanel(panelId);
           if (mountedRef.current) setPanelCache((prev) => ({ ...prev, [panelId]: detail }));
@@ -279,7 +273,6 @@ export function useTechMasters(): UseTechMastersResult {
     updatePerson,
     deletePerson,
     createCompany,
-    updateCompany,
     createPanel,
     updatePanel,
     updateJack,

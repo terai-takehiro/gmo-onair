@@ -40,7 +40,8 @@ export function PersonPicker({
     };
   }, [onClose]);
 
-  const companies = masters.companies;
+  // 会社は取引先（companies）そのもので仕入先がすべて入る（§13-5）。絞り込みには人がいる会社だけ出す
+  const companies = masters.companies.filter((c) => c.person_count > 0);
   const matched = filterPersons(masters.persons({ company: companyId || undefined }), { q });
   const candidates = matched.slice(0, MAX_CANDIDATES);
 
@@ -76,7 +77,7 @@ export function PersonPicker({
       <div className="max-h-64 overflow-y-auto">
         {candidates.length === 0 && (
           <p className="px-3 py-4 text-sub text-muted-foreground">
-            見つかりませんでした。下の「手入力で追加」で名前をそのまま入れられます
+            該当する人がいません。下の「手入力で追加」で名前を直接入力できます
           </p>
         )}
         {candidates.map((p) => (
@@ -121,7 +122,7 @@ export function PersonPicker({
         </span>
         {q.trim() === "" && (
           <span className="min-w-0 truncate text-sub-sm text-muted-foreground">
-            名前を入力するとそのまま入ります
+            入力した名前をそのまま追加します
           </span>
         )}
       </button>

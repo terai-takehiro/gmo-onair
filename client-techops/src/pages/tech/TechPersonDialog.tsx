@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import BufferedInput from "@/components/editor/BufferedInput";
 import { notifyError } from "@/lib/notify";
-import { TECH_ROLES } from "@gmo-onair/shared/src/tech/roles";
+import { TECH_ROLES, roleName } from "@gmo-onair/shared/src/tech/roles";
 import { X } from "lucide-react";
 import type { TechCompanyPayload, TechPersonPayload } from "@/lib/techApi";
 
@@ -46,8 +46,8 @@ export function RoleBadges({ roles, onChange }: { roles: string[]; onChange: (ne
       >
         <option value="">役職を追加</option>
         {rest.map((r) => (
-          <option key={r} value={r}>
-            {r}
+          <option key={r} value={r} title={roleName(r) || undefined}>
+            {roleName(r) ? `${r}（${roleName(r)}）` : r}
           </option>
         ))}
       </select>
@@ -90,17 +90,17 @@ export function TechPersonDialog({
       return;
     }
     if (companyId === "") {
-      notifyError("会社を選んでください。");
+      notifyError("会社を選択してください。");
       return;
     }
     setSaving(true);
     try {
       // ⚠️ 失敗は投げずに `false` で返る。閉じてしまうと入力が消えるので、送れたときだけ閉じる
-      if (await onSubmit({ tech_company_id: companyId, name: name.trim(), kana: kana.trim(), main_roles: roles })) {
+      if (await onSubmit({ company_id: companyId, name: name.trim(), kana: kana.trim(), main_roles: roles })) {
         onOpenChange(false);
       }
     } catch {
-      notifyError("追加できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
+      notifyError("技術人員を追加できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
     } finally {
       setSaving(false);
     }
@@ -111,7 +111,7 @@ export function TechPersonDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="技術人員を追加"
-      sub="技術資料の名前の候補に出ます"
+      sub="技術資料の名前の候補に表示されます"
       footer={
         <FormDialogFooter>
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={saving}>
@@ -189,7 +189,7 @@ export function TechCompanyDialog({
         onOpenChange(false);
       }
     } catch {
-      notifyError("追加できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
+      notifyError("会社を追加できませんでした。", { description: "少し待ってから、もう一度お試しください。" });
     } finally {
       setSaving(false);
     }
@@ -200,6 +200,7 @@ export function TechCompanyDialog({
       open={open}
       onOpenChange={onOpenChange}
       title="会社を追加"
+      sub="取引先に追加されます。同じ名前の取引先がある場合は、その取引先を使用します"
       size="sm"
       footer={
         <FormDialogFooter>
@@ -223,7 +224,7 @@ export function TechCompanyDialog({
             id="tech-company-short"
             value={shortName}
             onCommit={setShortName}
-            placeholder="表で使う短い名前"
+            placeholder="候補や表に表示する短い名前"
             className={fieldClass}
           />
         </div>
