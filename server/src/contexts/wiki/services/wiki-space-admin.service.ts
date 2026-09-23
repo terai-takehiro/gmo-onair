@@ -279,6 +279,17 @@ export async function updateSpace(user: WikiUser, spaceId: string, input: Update
     const currentOwner = (locked.owner_user_id as string | null) ?? null;
     const ownerChanged = has('owner_user_id') && String(input.owner_user_id ?? '') !== String(currentOwner ?? '');
     const owner = ownerChanged ? await cleanOwner(input.owner_user_id) : currentOwner;
+    /*
+     * ⚠️ **ただし「全員」→「メンバーだけ」に切り替えるときは、いまの担当も見直します**
+     * （#740 の Codex 指摘・P2）。担当が停止・Wiki の権限を外されたあとに限定へ切り替えると、
+     * メンバーの行を足しても開けない・見直しの通知も届かない人が担当に残ります。
+     * 選び直すか外してもらいます（担当を変えないふだんの保存は、上の理由で見ません）。
+     */
+    if (!ownerChanged && owner && visibility === 'members' && locked.visibility !== 'members') {
+      await cleanActiveUser(owner, 'いまの担当').catch(() => {
+        throw new ValidationError('いまの担当は利用が止まっているか、Wiki を使える権限がありません。「メンバーだけ」にする前に、担当を選び直すか外してください。');
+      });
+    }
 
     await tx.execute(
       `UPDATE wiki_spaces
