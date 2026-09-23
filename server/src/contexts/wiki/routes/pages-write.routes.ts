@@ -19,7 +19,7 @@ import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { ValidationError } from '../../qsheet/services/httpErrors';
 import { assertReadablePage } from '../services/wiki-access.service';
-import { setPageKind } from '../services/wiki-database.service';
+import { setPageKind, setPageKindTx } from '../services/wiki-database.service';
 import { savePageInternal, selectPageRow, type SavePageInput } from '../services/wiki-page.service';
 import {
   createPage,
@@ -154,12 +154,20 @@ router.patch('/pages/:id', ...canEdit, wrap(async (req, res) => {
    * **版も `updated_at` も増やしません**（並べ替え・テンプレートの登録と同じ扱い）。
    * だから `savePageInternal` ではなく専用の口を通します。
    */
-  if (has(b, 'kind')) await setPageKind(req.user!, pageId, readKind(b.kind));
+  const kind = has(b, 'kind') ? readKind(b.kind) : null;
 
   // 種類だけを送ってきた保存で、中身の変わらない版を1つ足さない
   const changed = Object.keys(input).some((k) => k !== 'expected_updated_at');
+  if (!changed && kind) await setPageKind(req.user!, pageId, kind);
+  /*
+   * ⚠️ 種類と中身を一緒に送ってきたら、**種類の切り替えも保存と同じ取引で**（`inTx`）。
+   * 先に種類だけを確定していたころは、担当の検査で保存を断ったのに種類だけ変わりました
+   * （#740 の Codex 指摘・P2）。
+   */
   const page = changed
-    ? await savePageInternal(pageId, input, req.user!)
+    ? await savePageInternal(pageId, input, req.user!, {
+      inTx: kind ? (tx) => setPageKindTx(tx, req.user!, pageId, kind) : undefined,
+    })
     : await selectPageRow(pageId);
   res.json({ success: true, data: page });
 }));

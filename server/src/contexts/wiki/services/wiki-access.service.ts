@@ -182,6 +182,37 @@ export async function assertPageWritableTx(
 }
 
 /**
+ * ページに書く操作の**取引の入口**。ページの行を押さえ、スペースの行を押さえて読めるかを見直し、
+ * 押さえた行を返します（見られなければ 404）。
+ *
+ * ⚠️ 入口の `assertReadablePage` だけで書くと、その後で「メンバーだけ」へ切り替わったり
+ * メンバーから外されたりしても書けました。保存（#740 の Codex 指摘・P1）に続いて削除でも
+ * 指摘されたので、**ページに書く操作はすべてここを通します**（削除・移動・テンプレート・
+ * 種類・項目の定義・見直し・編集ロック・コメント）。
+ *
+ * `mode`: その取引でページの行を書き換えるなら `update`、書き換えない（コメント・項目の定義）なら `share`。
+ */
+export async function lockWritablePageTx(
+  tx: TxClient,
+  user: WikiUser,
+  pageId: string,
+  mode: 'update' | 'share' = 'update',
+): Promise<Record<string, unknown>> {
+  const page = await tx.queryOne(
+    `SELECT p.id, p.space_id, p.status, p.created_by, p.owner_user_id, p.kind,
+            p.review_by::text AS review_by, p.locked_by, p.locked_at,
+            (SELECT u.name FROM users u WHERE u.id = p.locked_by) AS locked_by_name
+       FROM wiki_pages p
+      WHERE p.id = ? AND p.deleted_at IS NULL
+      ${mode === 'update' ? 'FOR UPDATE OF p' : 'FOR SHARE OF p'}`,
+    [pageId],
+  );
+  if (!page) throw new NotFoundError('ページが見つかりません');
+  await assertPageWritableTx(tx, user, page);
+  return page;
+}
+
+/**
  * **通知を出す相手が、いまそのページを読めるか**を見るための `WikiUser` を作る
  * （Codex レビュー指摘・#735）。
  *

@@ -15,7 +15,8 @@
  * 引き継ぎ・申し出の通知は作りません（運営マニュアルと同じ判断）——
  * 保持者は次のハートビートの応答で気づきます。
  */
-import { queryOne, type Row } from '../../../shared/db/connection';
+import { queryOne, withTransaction, type Row } from '../../../shared/db/connection';
+import { lockWritablePageTx, type WikiUser } from './wiki-access.service';
 import { NotFoundError, LockError } from '../../qsheet/services/httpErrors';
 
 /**
@@ -114,15 +115,20 @@ export interface WikiLockAcquireResult {
  * 両方が「取れる」と判定して両方に `acquired: true` を返します。条件を
  * UPDATE の WHERE 句に畳み込み、行ロックそのものに排他させます。
  */
-export async function acquireWikiLock(pageId: string, userId: string): Promise<WikiLockAcquireResult> {
-  const won = await queryOne(
-    `UPDATE wiki_pages
-        SET locked_by = ?, locked_at = NOW(), lock_requested_by = NULL, lock_requested_at = NULL
-      WHERE id = ? AND deleted_at IS NULL
-        AND (locked_by IS NULL OR locked_by = ? OR locked_at < NOW() - ${STALE_INTERVAL})
-      RETURNING id`,
-    [userId, pageId, userId],
-  );
+export async function acquireWikiLock(pageId: string, user: WikiUser): Promise<WikiLockAcquireResult> {
+  const userId = user.id;
+  // 錠を取ったあとで読めるかを見直す（`lockWritablePageTx`。ここの4つとも同じ）
+  const won = await withTransaction(async (tx) => {
+    await lockWritablePageTx(tx, user, pageId);
+    return tx.queryOne(
+      `UPDATE wiki_pages
+          SET locked_by = ?, locked_at = NOW(), lock_requested_by = NULL, lock_requested_at = NULL
+        WHERE id = ? AND deleted_at IS NULL
+          AND (locked_by IS NULL OR locked_by = ? OR locked_at < NOW() - ${STALE_INTERVAL})
+        RETURNING id`,
+      [userId, pageId, userId],
+    );
+  });
   // 取れても取れなくても、いまの状態（誰が持っているか・申し出があるか）を返す
   const lock = await lockStateOf(pageId);
   return { acquired: !!won, lock };
@@ -132,13 +138,15 @@ export async function acquireWikiLock(pageId: string, userId: string): Promise<W
  * 放す。**自分が保持者のときだけ**書き換えます — 条件を WHERE 句に入れないと、
  * 直前に manager が引き継いだロックまで消してしまいます。
  */
-export async function releaseWikiLock(pageId: string, userId: string): Promise<WikiLockState> {
-  await queryOne(
-    `UPDATE wiki_pages SET locked_by = NULL, locked_at = NULL
-      WHERE id = ? AND deleted_at IS NULL AND locked_by = ?
-      RETURNING id`,
-    [pageId, userId],
-  );
+export async function releaseWikiLock(pageId: string, user: WikiUser): Promise<WikiLockState> {
+  await withTransaction(async (tx) => {
+    await lockWritablePageTx(tx, user, pageId);
+    await tx.execute(
+      `UPDATE wiki_pages SET locked_by = NULL, locked_at = NULL
+        WHERE id = ? AND deleted_at IS NULL AND locked_by = ?`,
+      [pageId, user.id],
+    );
+  });
   return lockStateOf(pageId);
 }
 
@@ -146,25 +154,29 @@ export async function releaseWikiLock(pageId: string, userId: string): Promise<W
  * 強制的に引き継ぐ（**manager。権限は route で確かめ済みという前提**）。
  * 前の保持者は次のハートビートの応答（`acquired: false`）で気づきます。
  */
-export async function takeoverWikiLock(pageId: string, userId: string): Promise<WikiLockState> {
-  await queryOne(
-    `UPDATE wiki_pages
-        SET locked_by = ?, locked_at = NOW(), lock_requested_by = NULL, lock_requested_at = NULL
-      WHERE id = ? AND deleted_at IS NULL
-      RETURNING id`,
-    [userId, pageId],
-  );
+export async function takeoverWikiLock(pageId: string, user: WikiUser): Promise<WikiLockState> {
+  await withTransaction(async (tx) => {
+    await lockWritablePageTx(tx, user, pageId);
+    await tx.execute(
+      `UPDATE wiki_pages
+          SET locked_by = ?, locked_at = NOW(), lock_requested_by = NULL, lock_requested_at = NULL
+        WHERE id = ? AND deleted_at IS NULL`,
+      [user.id, pageId],
+    );
+  });
   return lockStateOf(pageId);
 }
 
 /** 交代を申し出る。**自分が保持者でないときだけ**書きます */
-export async function requestWikiLockHandoff(pageId: string, userId: string): Promise<WikiLockState> {
-  await queryOne(
-    `UPDATE wiki_pages
-        SET lock_requested_by = ?, lock_requested_at = NOW()
-      WHERE id = ? AND deleted_at IS NULL AND locked_by IS DISTINCT FROM ?
-      RETURNING id`,
-    [userId, pageId, userId],
-  );
+export async function requestWikiLockHandoff(pageId: string, user: WikiUser): Promise<WikiLockState> {
+  await withTransaction(async (tx) => {
+    await lockWritablePageTx(tx, user, pageId);
+    await tx.execute(
+      `UPDATE wiki_pages
+          SET lock_requested_by = ?, lock_requested_at = NOW()
+        WHERE id = ? AND deleted_at IS NULL AND locked_by IS DISTINCT FROM ?`,
+      [user.id, pageId, user.id],
+    );
+  });
   return lockStateOf(pageId);
 }

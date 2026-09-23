@@ -22,6 +22,7 @@ import { headingsText } from '../wiki-markdown';
 import {
   canReadSpace,
   assertReadablePage,
+  lockWritablePageTx,
   readableSpaceIds,
   type WikiUser,
 } from './wiki-access.service';
@@ -289,23 +290,26 @@ export interface DeletePageResult {
  */
 export async function deletePage(user: WikiUser, pageId: string): Promise<DeletePageResult> {
   await assertReadablePage(user, pageId);
-  const page = await pageRowOf(pageId);
-  assertPageEditable(page, user.id);
 
-  const rows = await queryAll(
-    `WITH RECURSIVE sub AS (
-        SELECT p.id, 0 AS depth FROM wiki_pages p WHERE p.id = ? AND p.deleted_at IS NULL
-        UNION ALL
-        SELECT c.id, s.depth + 1 FROM sub s
-          JOIN wiki_pages c ON c.parent_id = s.id AND c.deleted_at IS NULL
-         WHERE s.depth < ${MAX_DEPTH}
-      )
-      UPDATE wiki_pages
-         SET deleted_at = NOW(), updated_by = ?, updated_at = NOW()
-       WHERE id IN (SELECT id FROM sub) AND deleted_at IS NULL
-      RETURNING id, status`,
-    [pageId, user.id],
-  );
+  // 錠を取ったあとで読めるかを見直してから消す（`lockWritablePageTx`・#740 の Codex 指摘・P1）
+  const rows = await withTransaction(async (tx) => {
+    const page = await lockWritablePageTx(tx, user, pageId);
+    assertPageEditable(page, user.id);
+    return tx.queryAll(
+      `WITH RECURSIVE sub AS (
+          SELECT p.id, 0 AS depth FROM wiki_pages p WHERE p.id = ? AND p.deleted_at IS NULL
+          UNION ALL
+          SELECT c.id, s.depth + 1 FROM sub s
+            JOIN wiki_pages c ON c.parent_id = s.id AND c.deleted_at IS NULL
+           WHERE s.depth < ${MAX_DEPTH}
+        )
+        UPDATE wiki_pages
+           SET deleted_at = NOW(), updated_by = ?, updated_at = NOW()
+         WHERE id IN (SELECT id FROM sub) AND deleted_at IS NULL
+        RETURNING id, status`,
+      [pageId, user.id],
+    );
+  });
 
   /*
    * 条件2（§7-3）: **公開せずに消した AI の下書きは「丸ごと不採用」**です。
@@ -347,10 +351,13 @@ export async function movePage(
     ? Math.trunc(Number(sortOrder))
     : await nextSortOrder(spaceId, parentId);
 
-  await queryOne(
-    'UPDATE wiki_pages SET parent_id = ?, sort_order = ? WHERE id = ? AND deleted_at IS NULL RETURNING id',
-    [parentId, order, pageId],
-  );
+  await withTransaction(async (tx) => {
+    await lockWritablePageTx(tx, user, pageId);
+    await tx.execute(
+      'UPDATE wiki_pages SET parent_id = ?, sort_order = ? WHERE id = ? AND deleted_at IS NULL',
+      [parentId, order, pageId],
+    );
+  });
   return { id: pageId, space_id: spaceId, parent_id: parentId, sort_order: order };
 }
 
@@ -385,11 +392,10 @@ export async function setPageTemplate(
   isTemplate: boolean,
 ): Promise<Row> {
   await assertReadablePage(user, pageId);
-  await pageRowOf(pageId);
-  await queryOne(
-    'UPDATE wiki_pages SET is_template = ? WHERE id = ? AND deleted_at IS NULL RETURNING id',
-    [isTemplate, pageId],
-  );
+  await withTransaction(async (tx) => {
+    await lockWritablePageTx(tx, user, pageId);
+    await tx.execute('UPDATE wiki_pages SET is_template = ? WHERE id = ?', [isTemplate, pageId]);
+  });
   return selectPageRow(pageId);
 }
 
