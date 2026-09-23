@@ -11,9 +11,9 @@
  * 権限区画 `wiki` そのものを持たない人は route の `requirePermission` が 403 を返すので、
  * ここで見るのは「区画は持っているが、このスペースは見られない」場合だけです。
  */
-import { queryAll, queryOne } from '../../../shared/db/connection';
+import { queryAll, queryOne, type TxClient } from '../../../shared/db/connection';
 import { meetsPermissionLevel } from '../../../shared/middleware/auth';
-import { NotFoundError } from '../../qsheet/services/httpErrors';
+import { NotFoundError, ValidationError } from '../../qsheet/services/httpErrors';
 
 /** 判定に要る分だけ。`req.user`（AuthUser）をそのまま渡せる形 */
 export interface WikiUser {
@@ -117,6 +117,67 @@ export async function canReadPage(user: WikiUser, pageId: string): Promise<boole
 export async function assertReadablePage(user: WikiUser, pageId: string): Promise<void> {
   if (!(await canReadPage(user, pageId))) {
     throw new NotFoundError('ページが見つかりません');
+  }
+}
+
+/**
+ * 担当に選んでよい人か。
+ *
+ * ⚠️ **新しく選ぶときは在籍中（`status = 'active'`）の人だけ**です（#740 の Codex 指摘・P2）。
+ * 削除していないかだけを見ていたころは、停止・招待中の人を担当にでき、ログインできず
+ * 見直しの通知も届かない人に仕事が付いたままになりました。いまの担当のまま保存する
+ * ときは見ません（あとから停止された担当のページでも、ほかの欄の保存を断らないため）。
+ *
+ * ⚠️ 「いまの担当」は**保存の取引の中で錠を取ったあとの値**を渡します（`savePageInternal`）。
+ * 錠の外で読んだ値と比べると、同時に担当を変えた人の値を古い（停止中の）担当で
+ * 上書きしても「変わっていない」になりました（#740 の Codex 指摘・P2）。
+ */
+export async function assertUserExists(
+  userId: string,
+  currentOwnerId: string | null = null,
+  /** 保存の取引の中で見るときはその取引（`savePageInternal`。錠の中の担当と比べる） */
+  db: Pick<TxClient, 'queryOne'> = { queryOne },
+): Promise<void> {
+  if (currentOwnerId && userId === currentOwnerId) return;
+  // 在籍中で Wiki を使える人だけ（`WIKI_ELIGIBLE`。Wiki の権限が無い人を担当にすると、
+  // 開いても 403・コメントの通知も届かない＝#740 の Codex 指摘・P2）
+  const row = await db.queryOne(`SELECT 1 AS ok FROM users u WHERE u.id = ? AND ${WIKI_ELIGIBLE}`, [userId]);
+  if (!row) {
+    throw new ValidationError('担当に選んだ人が見つからないか、利用が止まっているか、Wiki を使える権限がありません。選び直してください。');
+  }
+}
+
+/**
+ * **保存の取引の中で**、そのページにまだ書けるかを見直す（`savePageInternal` が
+ * ページの行を `FOR UPDATE` で押さえたあとに呼ぶ）。
+ *
+ * ⚠️ 入口の `assertReadablePage` は錠の外なので、そのあとで「全員」→「メンバーだけ」に
+ * 切り替わると、外れた人の保存がそのまま通りました（#740 の Codex 指摘・P1）。
+ * スペースの行を `FOR SHARE` で押さえてから見るので、閲覧範囲・メンバーの変更
+ * （どちらもスペースの行を `FOR UPDATE`）と直列になります。見られなければ 404。
+ */
+export async function assertPageWritableTx(
+  tx: TxClient,
+  user: WikiUser,
+  page: Record<string, unknown>,
+): Promise<void> {
+  const notFound = new NotFoundError('ページが見つかりません');
+  const space = await tx.queryOne(
+    'SELECT visibility FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR SHARE',
+    [String(page.space_id)],
+  );
+  if (!space) throw notFound;
+  if (user.role !== 'system_admin' && space.visibility !== 'all') {
+    const member = await tx.queryOne(
+      'SELECT 1 AS ok FROM wiki_space_members WHERE space_id = ? AND user_id = ?',
+      [String(page.space_id), user.id],
+    );
+    if (!member) throw notFound;
+  }
+  // 下書きは書いた人・担当・manager だけ（`canReadPage` と同じ規則）
+  if (page.status === 'draft'
+    && page.created_by !== user.id && page.owner_user_id !== user.id && !isWikiManager(user)) {
+    throw notFound;
   }
 }
 

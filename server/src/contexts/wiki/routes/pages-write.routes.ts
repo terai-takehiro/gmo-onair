@@ -27,7 +27,6 @@ import {
   movePage,
   listTemplates,
   setPageTemplate,
-  assertUserExists,
   assertParentForSave,
 } from '../services/wiki-write.service';
 import { wrap, p1 } from './wrap';
@@ -147,11 +146,7 @@ router.patch('/pages/:id', ...canEdit, wrap(async (req, res) => {
   await assertReadablePage(req.user!, pageId);
   const b = body(req);
   const input = readSaveInput(b);
-  if (input.owner_user_id) {
-    // いまの担当のまま保存するときは、在籍中かを見ない（`assertUserExists` の注記）
-    const current = await selectPageRow(pageId);
-    await assertUserExists(input.owner_user_id, (current.owner_user_id as string | null) ?? null);
-  }
+  // 担当を選べる人かは `savePageInternal` が錠の中で見る（`assertUserExists` の注記）
   if (input.parent_id !== undefined) await assertParentForSave(pageId, input.parent_id);
 
   /*

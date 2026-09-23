@@ -21,7 +21,13 @@ import {
 } from '../../qsheet/services/httpErrors';
 import { headingsText, extractPageLinks } from '../wiki-markdown';
 import type { WikiPropValue } from '../wiki-props';
-import { assertReadablePage, readableSpaceIds, type WikiUser } from './wiki-access.service';
+import {
+  assertPageWritableTx,
+  assertReadablePage,
+  assertUserExists,
+  readableSpaceIds,
+  type WikiUser,
+} from './wiki-access.service';
 import { assertPageEditable } from './wiki-lock.service';
 import { breadcrumbOf } from './wiki-path.service';
 import { assertPersonsEligible, checkedRowProps } from './wiki-row-props';
@@ -262,7 +268,8 @@ export interface SavePageOptions {
 export async function savePageInternal(
   pageId: string,
   input: SavePageInput,
-  user: { id: string },
+  /** 錠の中で書けるかを見直すので、役割・権限まで要る（`req.user` をそのまま渡せる） */
+  user: WikiUser,
   opts: SavePageOptions = {},
 ): Promise<Row> {
   if (input.title !== undefined && !String(input.title).trim()) {
@@ -290,6 +297,7 @@ export async function savePageInternal(
     const cur = await tx.queryOne(
       `SELECT p.id, p.rev, p.title, p.body_md, p.icon, p.status, p.parent_id, p.sort_order,
               p.props, p.tags, p.owner_user_id, p.review_by::text AS review_by,
+              p.space_id, p.created_by,
               p.published_at, p.updated_at, p.updated_by,
               p.locked_by, p.locked_at,
               (SELECT u.name FROM users u WHERE u.id = p.updated_by) AS updater_name,
@@ -300,6 +308,12 @@ export async function savePageInternal(
       [pageId],
     );
     if (!cur) throw new NotFoundError('ページが見つかりません');
+    // 入口で読めても、錠を取るまでに閲覧範囲・メンバーが変わりうる（`assertPageWritableTx`）
+    await assertPageWritableTx(tx, user, cur);
+    // 担当・人の項目は**錠の中の値と比べて**見る（`assertUserExists`・`checkedRowProps` の注記）
+    if (input.owner_user_id) {
+      await assertUserExists(input.owner_user_id, (cur.owner_user_id as string | null) ?? null, tx);
+    }
     publishedNow = cur.status === 'draft' && input.status === 'published';
 
     // 編集ロック（§6-③）。**本文・題を変えるときだけ**見る —
@@ -320,8 +334,6 @@ export async function savePageInternal(
     const title = String(pick(input.title, cur.title)).trim();
     const body = String(pick(input.body_md, cur.body_md) ?? '');
     const status = String(pick(input.status, cur.status));
-    // 人の項目は**錠の中の値と比べて**見る（`checkedRowProps` の注記）。錠の外で読んだ値と
-    // 比べると、同時に直した人の値を古い（停止中の）人で上書きしても「変わっていない」になる
     if (checked?.items) {
       await assertPersonsEligible(
         checked.items,

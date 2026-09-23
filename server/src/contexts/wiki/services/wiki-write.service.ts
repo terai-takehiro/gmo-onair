@@ -23,7 +23,6 @@ import {
   canReadSpace,
   assertReadablePage,
   readableSpaceIds,
-  WIKI_ELIGIBLE,
   type WikiUser,
 } from './wiki-access.service';
 import { assertPageEditable } from './wiki-lock.service';
@@ -382,25 +381,6 @@ export async function setPageTemplate(
     [isTemplate, pageId],
   );
   return selectPageRow(pageId);
-}
-
-/** 担当に入れる人が実在するか（外部キー違反で 500 にしない） */
-/**
- * 担当に選んでよい人か。
- *
- * ⚠️ **新しく選ぶときは在籍中（`status = 'active'`）の人だけ**です（#740 の Codex 指摘・P2）。
- * 削除していないかだけを見ていたころは、停止・招待中の人を担当にでき、ログインできず
- * 見直しの通知も届かない人に仕事が付いたままになりました。いまの担当のまま保存する
- * ときは見ません（あとから停止された担当のページでも、ほかの欄の保存を断らないため）。
- */
-export async function assertUserExists(userId: string, currentOwnerId: string | null = null): Promise<void> {
-  if (currentOwnerId && userId === currentOwnerId) return;
-  // 在籍中で Wiki を使える人だけ（`WIKI_ELIGIBLE`。Wiki の権限が無い人を担当にすると、
-  // 開いても 403・コメントの通知も届かない＝#740 の Codex 指摘・P2）
-  const row = await queryOne(`SELECT 1 AS ok FROM users u WHERE u.id = ? AND ${WIKI_ELIGIBLE}`, [userId]);
-  if (!row) {
-    throw new ValidationError('担当に選んだ人が見つからないか、利用が止まっているか、Wiki を使える権限がありません。選び直してください。');
-  }
 }
 
 /** `PATCH /wiki/pages/:id` で親を変えるときも、作成・移動と同じ検査を通す */
