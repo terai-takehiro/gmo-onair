@@ -22,7 +22,7 @@ import {
   loadDefinition,
 } from './wiki-database.service';
 import type { WikiView } from './wiki-database-schema';
-import { assertOnairTargetsExist, databaseItems, validateRowProps } from './wiki-row-props';
+import { assertOnairTargetsExist, assertPersonsEligible, databaseItems, validateRowProps } from './wiki-row-props';
 import { savePageInternal } from './wiki-page.service';
 import { createPage } from './wiki-write.service';
 import { applyView } from './wiki-view-apply';
@@ -175,6 +175,8 @@ export async function createRow(
     const items = await databaseItems(pageId);
     props = validateRowProps(items, input.props as Record<string, WikiPropValue>);
     await assertOnairTargetsExist(items, props);
+    // 人の項目も**作る前に**（#740 の Codex 指摘・P2。あとの保存で断ると空の行が残る）
+    await assertPersonsEligible(items, props, {});
   }
 
   const created = await createPage(user, {

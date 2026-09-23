@@ -180,7 +180,8 @@ export async function checkedRowProps(
   if (!items) return props;
   const checked = validateRowProps(items, props as Record<string, WikiPropValue>);
   await assertOnairTargetsExist(items, checked);
-  await assertPersonsEligible(pageId, items, checked);
+  const current = await queryOne('SELECT props FROM wiki_pages WHERE id = ?', [pageId]);
+  await assertPersonsEligible(items, checked, (current?.props ?? {}) as Record<string, unknown>);
   return checked;
 }
 
@@ -192,15 +193,14 @@ export async function checkedRowProps(
  * **いま入っている値と同じなら見ません** — あとから停止・権限を外された人が入った行でも、
  * ほかの項目の保存を断らないためです。
  */
-async function assertPersonsEligible(
-  pageId: string,
+export async function assertPersonsEligible(
   items: WikiItem[],
   props: Record<string, WikiPropValue>,
+  /** いま入っている値（新しく作る行なら `{}`。全部が「新しく入れた値」になる） */
+  before: Record<string, unknown>,
 ): Promise<void> {
   const personItems = items.filter((i) => i.type === 'person');
   if (personItems.length === 0) return;
-  const current = await queryOne('SELECT props FROM wiki_pages WHERE id = ?', [pageId]);
-  const before = (current?.props ?? {}) as Record<string, unknown>;
   const wanted = new Map<string, string>();
   for (const item of personItems) {
     const value = props[item.id];
