@@ -13,7 +13,7 @@ GMO ONAiR（GMOグローバルスタジオの制作管理プラットフォー�
 
 ## 1. 環境を作る
 
-必要なもの: **Node.js 20** / **Docker**（検証用 Postgres 用）。`.devcontainer/` を使えばコンテナの中で完結します。
+必要なもの: **Node.js 22** / **Docker**（検証用 Postgres 用）。`.devcontainer/` を使えばコンテナの中で完結します。
 
 ```bash
 git clone https://github.com/terai-takehiro/gmo-onair.git

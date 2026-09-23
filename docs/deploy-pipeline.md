@@ -110,7 +110,7 @@ deps       npm ci --workspaces --include-workspace-root（依存が変わらな�
 build-client / build-client-equipment / build-client-techops / build-client-live / build-client-daily / build-client-wiki / build-server
            （BuildKit が並列実行。変更のないワークスペースはステージごとスキップ）
    ↓
-production node:20-alpine + postgresql16-client。server の dist・migrations・scripts・fonts と各 client の dist だけを集約
+production node:22-alpine + postgresql16-client。server の dist・migrations・scripts・fonts と各 client の dist だけを集約
 ```
 
 | 決めごと | 理由（1〜2文） |
