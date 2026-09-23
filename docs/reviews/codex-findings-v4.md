@@ -2542,6 +2542,40 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#733**（`feat(wiki): 段E（AI）— 聞く・下書き・整える・MCP 6本・フィードバックループ`・
+  2026-09-23 マージ）—— Wiki の段E。AI に聞く（`/wiki/ask`・出典が出せない質問には**答えず**
+  「足りないページ」に積む）、AI で下書きを作る、手入力した本文を Markdown に整える、
+  MCP のツール6本、そして会社方針「AIを使い捨てにしない」の還流（`ai_outputs` /
+  `ai_corrections` / `ai_outcomes` への記録と、次の呼び出しに渡す助言）を足した。
+  **Code Review は1巡・4件（P1×1・P2×3）。全件を検証用 Postgres で再現してから直し、
+  返信に修正前後の実測値（表）を載せて解決済み（未解決スレッド0件）。表に移す未対応の指摘は無い。**
+  Security Review は完了して findings 無し。CI は `build` `checks` とも成功。
+
+  | 優先 | 中身（要点） | どう直したか |
+  | --- | --- | --- |
+  | P1 | AI が `confidence: 'none'`（＝書かれていない）と申告しても、本文と出典さえ返せば**そのまま答えていた**。すぐ上のコメントで「`none` は落とす」と宣言しておきながら、その `confidence` をコードが1度も読んでいなかった | 受理の条件に `rawConfidence === 'cited'` を足した。⚠️ 初期値は `'none'` ではなく **`null`** — `'none'` にすると**材料が無くて AI を呼ばなかった回**が「AI が書かれていないと言った回」と記録上で混ざる（前者は検索の問題・後者は中身の問題で直す先が違う） |
+  | P2 | 直したあと**元に戻した**ときに、古い項目別の修正記録（`title` / `body_md`）が残り、**同じ出力が「無修正で採用」と「直された」の両方**に数えられていた（自動保存は1.5秒ごとなので普通に起きる経路） | `replaceWikiCorrections` に `alsoClear` を足し、戻した回では `DRAFT_FIELDS` も消してから `(全体) none` を入れる |
+  | P2 | 静的 MCP API キーで、**一覧にも検索にも出ない `archived` のページ**が id さえ分かれば全文取れた（「探せないから安全」で済ませていた） | `assertPublishedForStaticKey` を足し、静的キーのときだけ公開ページ以外を **404**（§8「存在ごと隠す」）。OAuth は今までどおり |
+  | P2 | 同じスレッドに**同時に質問**すると `MAX(seq) + 1` の採番が**長い AI の呼び出しをまたぐ**ため、一意制約で落ちて**質問だけ残り答えが消える** | `INSERT ... SELECT COALESCE(MAX(seq),0)+1` で1文の中で採って入れ、`23505` のときだけ数回採り直す。`nextSeq` は置き場ごと削除し理由を残した（残すと次の人が同じ形を書く） |
+
+  ⚠️ **指摘は `get_wiki_page` の1本だったが、同じ穴が `query_wiki_database` にもあった。**
+  `listRows` も `assertDatabasePage` → `canReadPage` を通るだけなので、**一覧から隠した台帳の行**が
+  同じ条件で取れた。2つとも塞いである。**MCP の読み取り口を足す人は、`canReadPage` に
+  任せきりにしないこと**（あれは画面用で「下書き以外を全部通す」）。
+
+  ⚠️ **最終コミット `d2942d78`（上の4件の修正）は、Code Review が1度も走っていない。**
+  19:16:22 に `chatgpt-codex-connector` が **usage limits** のコメントを出しており
+  （Security Review も `af6d65f` ＝ PR を開いた時点のコミットで完了）、
+  **「レビュー0件」は「指摘なし」と見分けが付かない**。段F（#735）で
+  `wiki-ask.service.ts`・`wiki-ai-corrections.service.ts`・`wiki-read.tools.ts` を読む機会があるので、
+  **そのときに改めて目を通すこと**。
+  ⚠️ **usage limits による Code Review の不発は #663 以降くり返し起きている**
+  （#665・#667・#669・#670・#671・#677・#678・#695・#696・#697・#728、そしてこの #733）。
+  検証: `npm run typecheck:all`（0 errors）・`npm run lint`（0 errors / 55 warnings＝
+  `origin/main` を別の worktree で実測した値と同じ。段E の追加は0）・`npm run test`
+  （shared 2,616件＋server 118件）・`npm run verify:ui`（**242/242**）・
+  実ブラウザ（Chromium・検証用 Postgres）で AI の3機能と MCP の権限を確認。
+
 - **#730**（`feat(wiki): 段D（検索）— 検索・お気に入り・リンク元・\`.md\` の出入口`・
   2026-09-22）—— Wiki の段D。検索の API と画面（`/search`）、どの画面からでも開く小窓
   （`Ctrl`／`⌘`＋`K`）、お気に入り、リンク元、`.md` の出入口（1枚ずつ・スペースまるごとの zip・

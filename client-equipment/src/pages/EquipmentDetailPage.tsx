@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { InfoRow } from "./detail/InfoRow";
 import { SearchableSelect } from "./detail/SearchableSelect";
+import { EquipmentWikiPages } from "./detail/EquipmentWikiPages";
+import { autofillFromMatches, fetchExactNameMatches } from "./detail/nameSuggest";
 import BranchCodeInput from "@/components/ui/BranchCodeInput";
 import {
   EQUIPMENT_STATUS,
@@ -59,27 +61,20 @@ export default function EquipmentDetailPage() {
     if (suggestTimer) clearTimeout(suggestTimer);
     if (!val.trim()) { setSuggestItems([]); return; }
     const t = setTimeout(async () => {
-      try {
-        const res = await api.get('/equipment/items', { params: { search: val, include_children: '1' } });
-        const found: any[] = res.data.data ?? [];
-        const exact = found.filter((i: any) => i.name.toLowerCase() === val.toLowerCase());
-        if (exact.length > 0) {
-          const models = [...new Set(exact.map((i: any) => i.model_number ?? ''))];
-          if (models.length === 1) {
-            setEditForm(f => ({
-              ...f,
-              name: val,
-              model_number: f.model_number || exact[0].model_number || '',
-              manufacturer_id: f.manufacturer_id || exact[0].manufacturer_id || '',
-            }));
-            setSuggestItems([]);
-          } else {
-            setSuggestItems(exact);
-          }
-        } else {
-          setSuggestItems([]);
-        }
-      } catch { setSuggestItems([]); }
+      // 通信と判定は `detail/nameSuggest.ts`（画面を 400 行に近づけないため切り出した）
+      const exact = await fetchExactNameMatches(val);
+      const fill = autofillFromMatches(exact);
+      if (fill) {
+        setEditForm(f => ({
+          ...f,
+          name: val,
+          model_number: f.model_number || fill.model_number,
+          manufacturer_id: f.manufacturer_id || fill.manufacturer_id,
+        }));
+        setSuggestItems([]);
+      } else {
+        setSuggestItems(exact);
+      }
     }, 400);
     setSuggestTimer(t);
   };
@@ -932,6 +927,9 @@ export default function EquipmentDetailPage() {
             </div>
           </section>
         )}
+
+        {/* Wiki の「使い方のページ」（段F・設計 §4-3）。0件のときは何も出ない */}
+        <EquipmentWikiPages itemId={item.id} />
 
         {/* 関連機材 / オプション品 */}
         <section className="rounded-card border border-border bg-card p-4 lg:col-span-2" aria-labelledby="eq-related">

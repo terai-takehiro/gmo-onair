@@ -123,6 +123,8 @@ router.post('/pages', ...canEdit, wrap(async (req, res) => {
     body_md: has(b, 'body_md') ? asText(b.body_md, '本文') : undefined,
     icon: has(b, 'icon') ? asTextOrNull(b.icon, 'アイコン') : undefined,
     status,
+    // 「足りないページ」から起こしたとき。**画面で2回に分けて呼ばない**（#735）
+    gap_id: has(b, 'gap_id') ? asTextOrNull(b.gap_id, '質問') : null,
   });
   res.status(201).json({ success: true, data: page });
 }));

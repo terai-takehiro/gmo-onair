@@ -230,6 +230,8 @@ const PAGES = [
   ['Wiki 書き出しと取り込み', '/wiki/transfer'],
   // 段E。語を入れる前の案内の状態を見る（AI を呼ばせない＝実モデルに依存しない）
   ['Wiki AI に聞く', '/wiki/ask'],
+  // 段F。3タブのうち既定（見直し予定）の状態を見る
+  ['Wiki 見直し', '/wiki/review'],
   // リアルタイムCG (`/awards/*`) は廃止済み。サーバーが配信しないので検査対象からも外した
   // (`client-awards/CLAUDE.md` 参照)。
 ];

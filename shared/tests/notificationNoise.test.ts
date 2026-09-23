@@ -119,12 +119,21 @@ function schedulerJobKeys(): string[] {
   const block = scheduler.slice(start, scheduler.indexOf('\n];', start));
   const keys: string[] = [];
   for (const m of block.matchAll(/key: '([a-z_0-9]+)'/g)) keys.push(m[1]);
-  // 2本だけ定数で書いてある。**定義元から値を引く**（ここに写すとずれる）
+  /*
+   * 月次の3本は定数で書いてある。**定義元から値を引く**（ここに写すとずれる）。
+   *
+   * ⚠️ **知らない定数名が来たら、その場で落とすこと。** 前は `consts[...]` が
+   * `undefined` のまま `readFileSync` に渡っており、月次の仕事を1本足した日に
+   * **試験ファイルごと読み込みに失敗**していた（`TypeError: path must be a string`）。
+   * そうなると③だけでなく①②の見張りも一緒に黙るので、ここで名指しで止める。
+   */
   const consts: Record<string, string> = {
     AI_REVIEW_JOB_KEY: join(ROOT, 'server', 'src', 'contexts', 'qsheet', 'ai', 'monthly-review.service.ts'),
     SALES_AI_REVIEW_JOB_KEY: join(ROOT, 'server', 'src', 'contexts', 'sales', 'services', 'sales-ai-review.service.ts'),
+    WIKI_REVIEW_JOB_KEY: join(ROOT, 'server', 'src', 'contexts', 'wiki', 'services', 'wiki-review.service.ts'),
   };
   for (const m of block.matchAll(/key: ([A-Z_]+),/g)) {
+    expect(consts[m[1]], `${m[1]} の定義元をこの表に足してください`).toBeTypeOf('string');
     const src = readFileSync(consts[m[1]], 'utf8');
     const v = new RegExp(`export const ${m[1]} = '([^']+)'`).exec(src);
     expect(v, `${m[1]} の定義が見つからない`).not.toBeNull();

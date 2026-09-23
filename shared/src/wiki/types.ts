@@ -133,19 +133,6 @@ export interface WikiPageVersion extends WikiPageVersionBrief {
   body_md: string;
 }
 
-export interface WikiComment {
-  id: string;
-  page_id: string;
-  parent_id: string | null;
-  body_md: string;
-  created_by: string;
-  creator_name?: string | null;
-  created_at: string;
-  resolved_at: string | null;
-  resolved_by: string | null;
-  resolver_name?: string | null;
-}
-
 /* ── データベース（§4-4） ─────────────────────────────────── */
 
 /**
@@ -305,21 +292,21 @@ export type {
   WikiTidyResult,
 } from './aiTypes';
 
-/* ── 見直し（§6-⑦） ──────────────────────────────────────── */
+/* ── 見直しとコメント（§6-⑦⑧・段F） ────────────────────── */
 
-export interface WikiReviewRow {
-  id: string;
-  title: string;
-  path: string;
-  space_id: string;
-  space_name: string;
-  owner_user_id: string | null;
-  owner_name: string | null;
-  review_by: string | null;
-  updated_at: string;
-  /** overdue = 予定日を過ぎた（画面の表示は「要見直し」） / soon = 14日以内 / no_owner = 担当なし */
-  bucket: 'overdue' | 'soon' | 'no_owner';
-}
+/*
+ * 中身は `reviewTypes.ts` にある（1ファイル 400 行の決まりで切り出した）。
+ * **ここから再輸出しているので、画面の import 先はこれまでどおり `types` のまま**。
+ */
+export type {
+  WikiComment,
+  WikiCommentOutcomeRow,
+  WikiCommentOutcome,
+  WikiReviewBucket,
+  WikiReviewRow,
+  WikiReviewLogEntry,
+  WikiReviewList,
+} from './reviewTypes';
 
 /* ── 書き出し・取り込み（§5-2 の約束3） ────────────────────── */
 
