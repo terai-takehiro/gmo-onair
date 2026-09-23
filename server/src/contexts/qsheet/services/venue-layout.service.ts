@@ -605,13 +605,20 @@ export interface LockAcquireResult {
  * 返してしまう）。
  */
 export async function acquireVenueLayoutLock(id: string, userId: string): Promise<LockAcquireResult> {
+  // ⚠️ 外部レビュー再指摘: 引き継ぎの申し出（lock_requested_by）は**持ち主が変わったときだけ**
+  // 消す。この UPDATE は60秒ごとの延長（保持者本人のハートビート）でも走るため、無条件に
+  // NULL にすると「編集を要求」を押しても次の延長（最大60秒後）で消えてしまい、保持者には
+  // 一度も伝わらなかった。SET の右辺の `locked_by` は更新前の値なので、これで持ち主の交代
+  // だけを見分けられる（`tech-doc.service.ts` の `acquireTechDocLock` と同じ形）。
   const acquired = await queryOne(
     `UPDATE qsheet_venue_layouts
-     SET locked_by = ?, locked_at = NOW(), lock_requested_by = NULL, lock_requested_at = NULL
+     SET locked_by = ?, locked_at = NOW(),
+         lock_requested_by = CASE WHEN locked_by IS DISTINCT FROM ? THEN NULL ELSE lock_requested_by END,
+         lock_requested_at = CASE WHEN locked_by IS DISTINCT FROM ? THEN NULL ELSE lock_requested_at END
      WHERE id = ? AND deleted_at IS NULL AND status != 'fixed'
        AND (locked_by IS NULL OR locked_by = ? OR locked_at < NOW() - INTERVAL '10 minutes')
      RETURNING id`,
-    [userId, id, userId],
+    [userId, userId, userId, id, userId],
   );
 
   if (acquired) {

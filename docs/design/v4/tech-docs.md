@@ -1,6 +1,6 @@
 # 技術資料 — 制作技術支援の新しいミニアプリ（設計・2026-09-22）
 
-> **状態**: **実装済み（段A〜D・2026-09-22）**。§13 の9件は「主担当の推奨（A案）」で実装した。決定が変わったら本文と実装を合わせる
+> **状態**: **実装済み（段A〜D・2026-09-22）**。§13 の9件は 2026-09-23 に全件判断済み（5 の「会社は取引先を使う」だけ推奨と違い、実装を合わせた）
 > **最終確認**: 2026-09-22
 > **位置づけ**: 制作技術支援に足す10個目のミニアプリ「技術資料」の正（何をする道具か・利用者に見せる語・画面・データの持ち方・初期データの入れ方・運営マニュアルとの連携・作る順）。**実装はまだ1行も書いていない。** §13 の9件は**すべて判断待ち**で、着手の前提は §13-1（名前と接頭辞 `TD`）の回答
 
@@ -428,7 +428,7 @@ techops の利用者が `sales` 区画を持つとは限らない。**`qsheet_te
 - **server の複製と2ファイル同時に直す**（`server/src/shared/production/miniapps.ts:11,148`）。`scripts/check-collab-parity.mjs:26` の `PAIRS` が本文の一致を見て、コメント以外が1行でも違うと止まる（`:42-90`）
 - 重複の固定テストは `shared/tests/miniapps.test.ts:23-48`（key／docPrefix／docNoSeq／listPath／docPath の重複禁止・`docPath` に `:id` 必須）
 - `kind: 'document'` にする理由は会場図面と同じ（[`venue-layout.md`](venue-layout.md) §5-3）: 1案件に資料が複数ある（本番用・リハ用）／冊子から `sourceId` で「どの資料か」を指す／確定・複製の作法を写せる／紙に `TD-…` で載せて現場で照合できる
-- **`kind: 'document'` でも MCP `list_production_docs` とジャーニーの `days[].docs` には自動で出ない**。`doc-list.service.ts` が読むのは `qsheet_documents` と `qsheet_schedules` だけ（`server/src/contexts/qsheet/services/production/doc-list.service.ts:64,101`）。運営マニュアル・会場図面と同じ状態で、MCP 連携は別作業（§7-5）
+- **`kind: 'document'` でも MCP `list_production_docs` とジャーニーの `days[].docs` には自動で出ない**（読む表を種類ごとに書いているため）。技術資料は `list_production_docs` にだけ足した（`doc-list.service.ts` の `fetchTechDocs`）。`days[].docs` には載せない（§7-5）
 
 ### 5-4. 資料番号・権限・同時編集
 
@@ -591,8 +591,8 @@ techops の利用者が `sales` 区画を持つとは限らない。**`qsheet_te
 
 | 出ないもの | なぜ | どうするか |
 | --- | --- | --- |
-| MCP `list_production_docs` の一覧 | `doc-list.service.ts` が読むのは `qsheet_documents` と `qsheet_schedules` だけ（`server/src/contexts/qsheet/services/production/doc-list.service.ts:64,101`） | 運営マニュアル・会場図面と同じ状態。MCP 連携は別作業（v1 に入れない） |
-| ジャーニーの `days[].docs` | 同上 | 同上 |
+| MCP `list_production_docs` の一覧 | `doc-list.service.ts` は種類ごとに読む表を書いている（当初は `qsheet_documents` と `qsheet_schedules` だけ） | **対応済み**: `fetchTechDocs` を足した（`app=tech`）。見える範囲は `listTechDocs` と同じ SQL（作成者／案件メンバー／`assigned_to`／admin）。資料は日を持たないので `date` は常に null、`date` 絞り込みはスタッフ行の作業日で当てる。`app` の enum は一覧が実際に読む `LISTED_DOC_APPS`（sheet／schedule／tech）に揃えた（以前は `manual`／`venue` を渡すと台本・スケジュール表が返っていた）。運営マニュアル・会場図面は引き続き対象外 |
+| ジャーニーの `days[].docs` | 同上 | **載せない（決定）**。1つの資料が複数の作業日を持ち（§13-4 の決定 A）「その資料の日」が無い。日が無い束（`date: null`）に入れると、技術資料しか無い案件に「日が決まっていない」カードが増え、進行台本・スケジュール表の「まだありません」を空振りで案内する。件数は下の行の別クエリで足り、MCP からは `list_production_docs` で引ける（`journey.service.ts` 冒頭の注記） |
 | ハブのタイルの件数バッジ | `MiniAppTiles.tsx` は sheet／schedule だけ `days` から数える（`client-techops/src/components/journey/MiniAppTiles.tsx:50-55`） | **別クエリ**を足す（同 `:71-75` の `useQuery(['venue-layouts','list',scope,id])` が手本）。`count: null` ならバッジを出さない（`:171`）。格子は `grid-cols-2 sm:grid-cols-3 lg:grid-cols-5`（`:160`） |
 | `MiniAppSwitcher` の切替 | `ORDER` は5つ固定（`MiniAppSwitcher.tsx:25-27`） | **足さない**（§1-2） |
 
@@ -774,19 +774,19 @@ GMO 社員（社内）と、他の協力会社は**手で足す**（⑥の「追
 
 ## 13. 判断待ち（9件）
 
-**2026-09-22 時点で全件が判断待ち。** 決まったらこの表を埋め、本文を決定に合わせる。
+**2026-09-23 に全件ご判断をいただいた**（利用者との1件ずつの確認）。8件は推奨どおり、5 だけ推奨と違い「取引先 `companies` をそのまま使う」。下の論点の表は経緯として残す。
 
 | # | 決定 |
 | --- | --- |
-| 1 | （未定） |
-| 2 | （未定） |
-| 3 | （未定） |
-| 4 | （未定） |
-| 5 | （未定） |
-| 6 | （未定） |
-| 7 | （未定） |
-| 8 | （未定） |
-| 9 | （未定） |
+| 1 | 接頭辞 `TD`・キー `tech` のまま（`TD-202610-0001`） |
+| 2 | **A段＝送り出し（OUT）・B段＝受け（IN）**。画面と書き出しの説明はこのまま |
+| 3 | 「CA」の正式名称は**カメラアシスタント**。画面の表記は「CA」のまま、正式名称を補足に持つ（`shared/src/tech/roles.ts`） |
+| 4 | 1つの技術資料に複数の作業日を持たせる（いまの形） |
+| 5 | **取引先 `companies` をそのまま使う**（推奨と違う）。独自の `qsheet_tech_companies` はやめ、`qsheet_tech_persons.company_id` → `companies(id)` に移す。techops からは qsheet 権限で名前だけ読み、「会社を追加」は取引先に仕入先として追加する（会社の編集・削除は案件管理で行う） |
+| 6 | 氏名のみ。連絡先は持たない。閲覧は qsheet reader |
+| 7 | 音声パッチ（AJP）はあとの段 |
+| 8 | 増設機材と機材台帳・レンタル機材検索の接続はあとの段 |
+| 9 | 名前は「技術資料」のまま |
 
 | # | 論点 | 選択肢 | 主担当の推奨 | なぜ |
 | --- | --- | --- | --- | --- |
