@@ -622,13 +622,21 @@ export async function acquireManualLock(manualId: string, userId: string): Promi
   // （画面を再読込するまで「確定された」と気づけない）。ここで`status != 'fixed'`
   // を弾けば、次のハートビートで`acquired:false`が返り、`held`がfalseになって
   // `editable`（`lockEnabled && held`）が自動でfalseに落ちる。
+  //
+  // ⚠️ 外部レビュー再指摘: 引き継ぎの申し出（lock_requested_by）は**持ち主が変わった
+  // ときだけ**消す。この UPDATE は60秒ごとの延長（保持者本人のハートビート）でも走るため、
+  // 無条件に NULL にすると「編集を要求」を押しても次の延長（最大60秒後）で消えてしまい、
+  // 保持者には一度も伝わらなかった。SET の右辺の `locked_by` は更新前の値なので、
+  // これで持ち主の交代だけを見分けられる（`tech-doc.service.ts` の `acquireTechDocLock` と同じ形）。
   const acquired = await queryOne(
     `UPDATE qsheet_manuals
-     SET locked_by = ?, locked_at = NOW(), lock_requested_by = NULL, lock_requested_at = NULL
+     SET locked_by = ?, locked_at = NOW(),
+         lock_requested_by = CASE WHEN locked_by IS DISTINCT FROM ? THEN NULL ELSE lock_requested_by END,
+         lock_requested_at = CASE WHEN locked_by IS DISTINCT FROM ? THEN NULL ELSE lock_requested_at END
      WHERE id = ? AND deleted_at IS NULL AND status != 'fixed'
        AND (locked_by IS NULL OR locked_by = ? OR locked_at < NOW() - INTERVAL '10 minutes')
      RETURNING id`,
-    [userId, manualId, userId],
+    [userId, userId, userId, manualId, userId],
   );
 
   if (acquired) {

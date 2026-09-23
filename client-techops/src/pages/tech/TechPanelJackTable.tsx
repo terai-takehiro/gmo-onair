@@ -10,6 +10,8 @@ import { Row, RowHeader, RowMain, RowSlot } from "@gmo-onair/shared/src/client/u
 import type { PatchJack, PatchPanel } from "@gmo-onair/shared/src/tech/types";
 import { patchNo } from "@gmo-onair/shared/src/tech/patchNo";
 import { panelJackLabel, type TechPanelBoardSelection } from "./TechPanelBoard";
+import { isTrunkLabel } from "./patchDerive";
+import { TerminalTag } from "./PatchRowExtras";
 
 const PER_PAGE = 8;
 
@@ -97,7 +99,7 @@ export function TechPanelJackTable({
       <RowHeader className="gap-2 text-th">
         <RowSlot w={56}>番号</RowSlot>
         <RowSlot w={56}>段</RowSlot>
-        <RowSlot w={128}>機材</RowSlot>
+        <RowSlot w={128}>機材・端子盤</RowSlot>
         <RowMain className="min-w-[96px]">名称</RowMain>
         <RowSlot w={72}>信号</RowSlot>
         <RowSlot w={72}>エリア</RowSlot>
@@ -144,7 +146,7 @@ export function TechPanelJackTable({
                       <BufferedInput
                         value={draft.device_name}
                         onCommit={(v) => setDraft((d) => (d ? { ...d, device_name: v } : d))}
-                        aria-label="機材"
+                        aria-label="機材・端子盤"
                         className="h-8 w-full min-w-0 rounded-control border border-border bg-background px-2 text-sub"
                       />
                     </RowSlot>
@@ -183,7 +185,7 @@ export function TechPanelJackTable({
                   </>
                 ) : (
                   <>
-                    <RowSlot w={128}>
+                    <RowSlot w={128} className="gap-1">
                       <button
                         type="button"
                         onClick={() => {
@@ -192,13 +194,14 @@ export function TechPanelJackTable({
                         }}
                         disabled={!canEdit}
                         className={cn(
-                          "truncate text-left text-sub font-bold",
+                          "min-w-0 truncate text-left text-sub font-bold",
                           hasDevice ? "text-foreground" : "text-muted-foreground",
                           canEdit && "hover:text-primary",
                         )}
                       >
                         {hasDevice ? jack.device_name : "（空き）"}
                       </button>
+                      {hasDevice && isTrunkLabel(jack.label) && <TerminalTag />}
                     </RowSlot>
                     <RowMain className="min-w-[96px]">
                       <span className="font-number truncate text-sub text-foreground">{jack.label}</span>

@@ -568,7 +568,7 @@ Slack の定例投稿 (bot 化の下準備・`docs/design/v4/keep-report.md` §6
 
 | ツール | 種別 | 概要 |
 |---|---|---|
-| `list_production_docs` | read | 進行台本・スケジュール表の横断一覧。project_id/gls_number/date/app/q で絞り込み。見えるもの（作成者本人／共有先／管理者）だけ |
+| `list_production_docs` | read | 進行台本・スケジュール表・技術資料の横断一覧（app=sheet/schedule/tech。運営マニュアル・会場図面は対象外）。project_id/gls_number/date/app/q で絞り込み。見えるもの（台本・スケジュール表は作成者本人／共有先、技術資料は作成者本人／案件メンバー、管理者は全件）だけ。技術資料の date は null（date 絞り込みは作業日で当てる） |
 | `get_production_journey` | read | 案件・資料単体の「今どこまで出来ているか」。`tone` は完成度ではなく「触られたか」 |
 | `get_sheet`（旧 `get_qsheet`） | read | 台本の中身。既定 outline（ロールと尺だけ）。台詞などの本文は `include_text=true` のときだけ。列（セル）は `blk.<type>#<n>` の参照キーで返る |
 | `get_day_schedule` | read | 当日の枠（スケジュール表）。schedule_id か project_id+date |

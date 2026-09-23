@@ -6,7 +6,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ChevronDown, ChevronUp, Copy, Plus, Trash2, User } from "lucide-react";
 import { Row, RowHeader, RowMain, RowSlot } from "@gmo-onair/shared/src/client/ui/row";
 import { confirmAction } from "@gmo-onair/shared/src/client/ui/confirm";
-import { TECH_ROLES } from "@gmo-onair/shared/src/tech/roles";
+import { TECH_ROLES, roleName } from "@gmo-onair/shared/src/tech/roles";
 import type { TechDoc, TechPerson, TechStaffRow } from "@gmo-onair/shared/src/tech/types";
 import { Button } from "@/components/ui/button";
 import BufferedInput from "@/components/editor/BufferedInput";
@@ -187,7 +187,7 @@ export function StaffTable({ doc, rows, canEdit, onCreate, onUpdate, onDelete, o
           ))}
           {counts.length === 0 && (
             <p className="border-t border-border-faint pt-2 text-sub text-muted-foreground">
-              名前と会社が入ると、ここに会社ごとの人数が出ます
+              名前と会社を入力すると、会社ごとの人数を表示します
             </p>
           )}
         </div>
@@ -256,7 +256,7 @@ function StaffRowView({
     onUpdate({
       person_id: person.id,
       person_name: person.name,
-      company_id: person.tech_company_id,
+      company_id: person.company_id,
       company_name: person.company_name,
     });
   };
@@ -273,18 +273,22 @@ function StaffRowView({
           <select
             value={row.role}
             aria-label="役職"
+            title={roleName(row.role) || undefined}
             onChange={(e) => onUpdate({ role: e.target.value })}
             className="h-8 w-full rounded-control border border-border bg-card px-1.5 font-number text-badge text-foreground"
           >
             <option value="">未定</option>
+            {/* 列が狭いので選んだ後の表示は略号のまま。正式名称は title に出す（§13-3） */}
             {TECH_ROLES.map((r) => (
-              <option key={r} value={r}>
+              <option key={r} value={r} title={roleName(r) || undefined}>
                 {r}
               </option>
             ))}
           </select>
         ) : (
-          <span className="font-number text-badge text-foreground">{row.role || "未定"}</span>
+          <span className="font-number text-badge text-foreground" title={roleName(row.role) || undefined}>
+            {row.role || "未定"}
+          </span>
         )}
       </RowSlot>
 

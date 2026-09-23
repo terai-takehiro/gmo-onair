@@ -1,6 +1,6 @@
 # 技術資料 — 制作技術支援の新しいミニアプリ（設計・2026-09-22）
 
-> **状態**: **実装済み（段A〜D・2026-09-22）**。§13 の9件は「主担当の推奨（A案）」で実装した。決定が変わったら本文と実装を合わせる
+> **状態**: **実装済み（段A〜D・2026-09-22）**。§13 の9件は 2026-09-23 に全件判断済み（5 の「会社は取引先を使う」だけ推奨と違い、実装を合わせた）
 > **最終確認**: 2026-09-22
 > **位置づけ**: 制作技術支援に足す10個目のミニアプリ「技術資料」の正（何をする道具か・利用者に見せる語・画面・データの持ち方・初期データの入れ方・運営マニュアルとの連携・作る順）。**実装はまだ1行も書いていない。** §13 の9件は**すべて判断待ち**で、着手の前提は §13-1（名前と接頭辞 `TD`）の回答
 
@@ -211,13 +211,13 @@ mm を打つ欄も、盤の物理配置を覚える必要も作らない（会�
   だから役職は**行が持ち**、人（⑥の技術人員）が持つのは「よく担当する役職」の候補だけにする
 - 役職の語と並び順は**元の PDF の表記をそのまま使う**（`SW → CAM →（CAM-A）→ MIX → AUD → CA →（CA-A）→ VE →（LD）→（LD-A）→ PA／PA MIX → 配信管理 →（3Play・TP・Dv）`）。
   `CA` の正式名称は PDF に無い（32/37枚に出る主要役職なのに意味が確定していない）→ §13-3 の判断待ち
-- **会社**は人が持つ（GMO 社員も1つの会社として持つ）。案件の発注元とは別物で、混ぜない
+- **会社**は人が持つ（GMO 社員も1つの会社として持つ）。実体は**案件管理の取引先 `companies`**（§13-5・migration 308）で、案件の発注元とは別物として使うだけで混ぜない
 
 ---
 
 ## 5. データの持ち方
 
-### 5-1. 表7本（migration **305**）
+### 5-1. 表6本（migration **305**・会社は308で `companies` に統合）
 
 設計時点（2026-09-22）の最新は `303_wiki.sql` だったので 304 を取ったが、並行 PR が `304_activity_body_edited.sql` を先にマージしたため **305 に取り直した**。
 `scripts/check-migration-numbers.mjs:27-59` は番号の重複だけを見るので、**並行 PR とぶつかったら番号を取り直す**。
@@ -301,7 +301,7 @@ CREATE TABLE IF NOT EXISTS qsheet_tech_staff_rows (
   role          TEXT NOT NULL DEFAULT '',                 -- SW / CAM / CAM-A / MIX …（元の PDF の語）
   person_id     TEXT REFERENCES qsheet_tech_persons(id),  -- 台帳から引いたときだけ入る
   person_name   TEXT NOT NULL DEFAULT '',                 -- 写した名前（手入力もここ）
-  company_id    TEXT REFERENCES qsheet_tech_companies(id),
+  company_id    TEXT REFERENCES companies(id),            -- 会社（取引先。§13-5・migration 308）
   company_name  TEXT NOT NULL DEFAULT '',                 -- 写した会社名
   note          TEXT NOT NULL DEFAULT '',
   sort_order    INTEGER NOT NULL DEFAULT 0,
@@ -354,22 +354,10 @@ CREATE TABLE IF NOT EXISTS qsheet_patch_jacks (
   （`COUNT(DISTINCT jack_no) FILTER (WHERE device_name <> '')`）。行数（48×2＝96）ではなく**番号の数**で数える（§9-1）
 
 ```sql
--- ── 会社と人（組織共通。案件に紐づけない） ─────────────────
-CREATE TABLE IF NOT EXISTS qsheet_tech_companies (
-  id           TEXT PRIMARY KEY,
-  name         TEXT NOT NULL,                             -- 株式会社ヌーベルバーグ
-  short_name   TEXT NOT NULL DEFAULT '',                  -- ヌーベルバーグ
-  company_id   TEXT REFERENCES companies(id),             -- 任意参照（§5-2）
-  sort_order   INTEGER NOT NULL DEFAULT 0,
-  note         TEXT NOT NULL DEFAULT '',
-  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  deleted_at   TIMESTAMPTZ
-);
-
+-- ── 人（組織共通。案件に紐づけない。会社は案件管理の取引先 companies を使う） ──
 CREATE TABLE IF NOT EXISTS qsheet_tech_persons (
   id                TEXT PRIMARY KEY,
-  tech_company_id   TEXT NOT NULL REFERENCES qsheet_tech_companies(id),
+  company_id        TEXT REFERENCES companies(id),         -- 会社（案件管理の取引先。§13-5・migration 308）
   name              TEXT NOT NULL,
   kana              TEXT NOT NULL DEFAULT '',             -- 元の PDF に無いので当面は空（§9-2）
   main_roles        TEXT[] NOT NULL DEFAULT '{}',         -- よく担当する役職（候補。固定属性ではない）
@@ -380,16 +368,21 @@ CREATE TABLE IF NOT EXISTS qsheet_tech_persons (
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   deleted_at        TIMESTAMPTZ
 );
-CREATE INDEX IF NOT EXISTS idx_qsheet_tech_persons_company
-  ON qsheet_tech_persons(tech_company_id) WHERE deleted_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_qsheet_tech_persons_company_id
+  ON qsheet_tech_persons(company_id) WHERE deleted_at IS NULL;
 ```
+
+migration 305 は自前の `qsheet_tech_companies`（`name`・`short_name`・任意参照 `company_id`）を作ったが、
+migration **308**（並行 PR の `306_notification_template_overdue_wording.sql` と衝突したため 306 から 307、さらに並行 PR の `307_wiki_review.sql` と衝突したため 308 に取り直し）（§13-5・2026-09-23 のご判断）で会社を**取引先 `companies` そのもの**に寄せ、
+`qsheet_tech_persons.tech_company_id` を `company_id`（`companies` 参照）に置き換え、`qsheet_tech_companies` は DROP した
+（`server/src/shared/db/migrations/308_tech_persons_companies.sql`）。
 
 **参加回数は列に持たない。** `qsheet_tech_staff_rows` を `person_id` で数えて出す（`COUNT(DISTINCT (tech_doc_id, work_date))`）。
 列に持つと、行を消したときに数だけ残る。
 
-### 5-2. 名前を写す（既存の表は書かない）
+### 5-2. 名前を写す（会社を除き既存の表は書かない）
 
-`qsheet_tech_companies.company_id` → `companies(id)`、`qsheet_tech_persons.partner_id` → `partners(id)`、
+`qsheet_tech_persons.company_id` → `companies(id)`（§13-5・migration 308）、`qsheet_tech_persons.partner_id` → `partners(id)`、
 `qsheet_tech_staff_rows.person_id`／`company_id`、`qsheet_tech_patch_rows.from_jack_id`／`to_jack_id` は**すべて任意参照**にし、
 **表示に使う名前は必ず隣の列に写す**（`person_name`・`company_name`・`from_jack_text`・`to_jack_text`）。
 
@@ -398,10 +391,14 @@ CREATE INDEX IF NOT EXISTS idx_qsheet_tech_persons_company
 | 消しても資料が空にならない | 台帳から人やパッチ番号を消しても、確定した資料の中の名前は残る |
 | 手入力と同じ形で入る | 台帳に無い人・番号を持たない増設機材の端子を、同じ列にそのまま書ける |
 | 読むのに JOIN が要らない | `130_project_members.sql:10-31` の `user_id`＋`member_name` と同じ二本立て |
-| 既存の表を techops が書かない | `companies`（`061_companies.sql:8-29`）・`partners`（`001b_postgresql_schema.sql:55-68`）・`equipment_items`（`007_equipment.sql:18-57`）の**列は触らない**（[`venue-layout.md`](venue-layout.md) §12-6。`298_venue_layout.sql:52,80` の `room_id`／`equipment_item_id` と同じ作法） |
+| 既存の表の列を書き換えない | `partners`（`001b_postgresql_schema.sql:55-68`）・`equipment_items`（`007_equipment.sql:18-57`）の**列は触らない**（[`venue-layout.md`](venue-layout.md) §12-6。`298_venue_layout.sql:52,80` の `room_id`／`equipment_item_id` と同じ作法）。`companies`（`061_companies.sql:8-29`）も既存の行は書き換えないが、下の理由で**新しい行を足すことだけ**は例外的に行う |
 
-会社の台帳を `companies` そのものにしない理由は権限にもある。`GET /companies` は `requirePermission('sales')`（`server/src/contexts/sales/routes/companies.routes.ts:128`・作成/更新は `sales:owner`・`:273,341`）で、
-techops の利用者が `sales` 区画を持つとは限らない。**`qsheet_tech_companies` を自前で持ち、`company_id` で任意に結ぶ**（§13-5）。
+会社の台帳は**案件管理の取引先 `companies` そのもの**（§13-5・2026-09-23 のご判断・migration 308）。`GET /companies` は
+`requirePermission('sales')`（`server/src/contexts/sales/routes/companies.routes.ts:128`）で techops の利用者が `sales` 区画を持つとは限らないため、
+techops 専用の口（`GET/POST /techops/tech-companies`・`tech-master.service.ts` の `listCompanies`／`createCompany`）を**qsheet 権限のまま**用意し、
+`id`・`name`・`short_name`・人数（`person_count`）だけを読む（連絡先・支払条件などは出さない）。⑥の「会社を追加」は**同じ名前の取引先があれば
+それを使い、無ければ仕入先（`is_vendor`）として作る**だけで、既存の取引先は書き換えない。**取引先の名前の変更・削除は案件管理で行う**
+（`server/src/contexts/qsheet/services/tech-master.service.ts:243-247` のコメント）。
 
 ### 5-3. ミニアプリのレジストリへの登録
 
@@ -428,7 +425,7 @@ techops の利用者が `sales` 区画を持つとは限らない。**`qsheet_te
 - **server の複製と2ファイル同時に直す**（`server/src/shared/production/miniapps.ts:11,148`）。`scripts/check-collab-parity.mjs:26` の `PAIRS` が本文の一致を見て、コメント以外が1行でも違うと止まる（`:42-90`）
 - 重複の固定テストは `shared/tests/miniapps.test.ts:23-48`（key／docPrefix／docNoSeq／listPath／docPath の重複禁止・`docPath` に `:id` 必須）
 - `kind: 'document'` にする理由は会場図面と同じ（[`venue-layout.md`](venue-layout.md) §5-3）: 1案件に資料が複数ある（本番用・リハ用）／冊子から `sourceId` で「どの資料か」を指す／確定・複製の作法を写せる／紙に `TD-…` で載せて現場で照合できる
-- **`kind: 'document'` でも MCP `list_production_docs` とジャーニーの `days[].docs` には自動で出ない**。`doc-list.service.ts` が読むのは `qsheet_documents` と `qsheet_schedules` だけ（`server/src/contexts/qsheet/services/production/doc-list.service.ts:64,101`）。運営マニュアル・会場図面と同じ状態で、MCP 連携は別作業（§7-5）
+- **`kind: 'document'` でも MCP `list_production_docs` とジャーニーの `days[].docs` には自動で出ない**（読む表を種類ごとに書いているため）。技術資料は `list_production_docs` にだけ足した（`doc-list.service.ts` の `fetchTechDocs`）。`days[].docs` には載せない（§7-5）
 
 ### 5-4. 資料番号・権限・同時編集
 
@@ -458,8 +455,10 @@ techops の利用者が `sales` 区画を持つとは限らない。**`qsheet_te
 | POST/DELETE | `/techops/tech-docs/:id/lock`／ POST `…/lock/request` ／ `…/lock/takeover`（manager） | qsheet editor |
 | GET | `/techops/tech-panels`（盤の一覧）・`/techops/tech-panels/:id`（パッチ番号の一覧） | qsheet reader |
 | PATCH | `/techops/tech-panels/:id/jacks/:jackId` | qsheet **manager** |
-| GET | `/techops/tech-persons`（会社と人）・`/techops/tech-persons?company=…&q=…` | qsheet reader |
-| POST/PATCH/DELETE | `/techops/tech-persons`・`/techops/tech-companies` | qsheet **manager** |
+| GET | `/techops/tech-persons`（人の一覧）・`/techops/tech-persons?company=…&q=…` | qsheet reader |
+| POST/PATCH/DELETE | `/techops/tech-persons` | qsheet **manager** |
+| GET | `/techops/tech-companies`（会社の一覧。中身は取引先 `companies`） | qsheet reader |
+| POST | `/techops/tech-companies`（会社を追加。同名の取引先の再利用／無ければ仕入先として作成） | qsheet **manager**（名前の変更・削除は無い。案件管理で行う） |
 | GET | `/techops/manuals/:id/resolve`（既存。`tech.*` を解決する分岐を足す） | qsheet reader |
 
 ルーターは `server/src/contexts/qsheet/index.ts:70-72` に `router.use(prefix, techDocsRoutes)` として足す（import は同 `:20-21`）。
@@ -483,7 +482,7 @@ techops の利用者が `sales` 区画を持つとは限らない。**`qsheet_te
 
 | 操作 | 中身 |
 | --- | --- |
-| **機材を選ぶ** | 機材のセルを押すと候補が開く。先頭に検索欄、下に機材の一覧、**末尾に「増設機材として手入力」**。増設機材を選ぶと、そのセルは自由入力になり右に薄い「増設」の印が出る |
+| **機材を選ぶ** | 機材のセルを押すと候補が開く。先頭に検索欄、下に機材の一覧、**末尾に「増設機材として手入力」**。増設機材を選ぶと、そのセルは自由入力になり右に薄い「増設」の印が出る。**名称に TRK が付く系統（AV-1〜AV-9・SW-CP・VTR-CP・VE-CP）は機材ではなく「端子盤」**として候補の最後に1つにまとめ、選んだセルと⑤の番号の表には「端子盤」の印を出す（2026-09-23 のご判断。列はどちらも「機材・端子盤」。盤の上では同じ `device_name` に入れ、名称の `TRK◯` から見分ける） |
 | **パッチ番号が絞られる** | 機材を選ぶと、**その機材に立ち上がっているパッチ番号だけ**に候補が絞られる（`qsheet_patch_jacks` を `device_name` で引く）。**空きが先**に出て、この資料で既に使っているパッチ番号には「使用中」の印を付ける。候補には番号・名称・盤の名前を並べる |
 | **名称** | 送り機材の名称（`qsheet_patch_jacks.label`）を初期値に入れ、**行ごとに書き換えられる**。書き換えたら盤の側は変わらない（写した値・§5-2） |
 | **行の操作** | 追加／並べ替え（つかんで動かす・`sort_order`）／削除。系統をまたいで動かせる |
@@ -591,8 +590,8 @@ techops の利用者が `sales` 区画を持つとは限らない。**`qsheet_te
 
 | 出ないもの | なぜ | どうするか |
 | --- | --- | --- |
-| MCP `list_production_docs` の一覧 | `doc-list.service.ts` が読むのは `qsheet_documents` と `qsheet_schedules` だけ（`server/src/contexts/qsheet/services/production/doc-list.service.ts:64,101`） | 運営マニュアル・会場図面と同じ状態。MCP 連携は別作業（v1 に入れない） |
-| ジャーニーの `days[].docs` | 同上 | 同上 |
+| MCP `list_production_docs` の一覧 | `doc-list.service.ts` は種類ごとに読む表を書いている（当初は `qsheet_documents` と `qsheet_schedules` だけ） | **対応済み**: `fetchTechDocs` を足した（`app=tech`）。見える範囲は `listTechDocs` と同じ SQL（作成者／案件メンバー／`assigned_to`／admin）。資料は日を持たないので `date` は常に null、`date` 絞り込みはスタッフ行の作業日で当てる。`app` の enum は一覧が実際に読む `LISTED_DOC_APPS`（sheet／schedule／tech）に揃えた（以前は `manual`／`venue` を渡すと台本・スケジュール表が返っていた）。運営マニュアル・会場図面は引き続き対象外 |
+| ジャーニーの `days[].docs` | 同上 | **載せない（決定）**。1つの資料が複数の作業日を持ち（§13-4 の決定 A）「その資料の日」が無い。日が無い束（`date: null`）に入れると、技術資料しか無い案件に「日が決まっていない」カードが増え、進行台本・スケジュール表の「まだありません」を空振りで案内する。件数は下の行の別クエリで足り、MCP からは `list_production_docs` で引ける（`journey.service.ts` 冒頭の注記） |
 | ハブのタイルの件数バッジ | `MiniAppTiles.tsx` は sheet／schedule だけ `days` から数える（`client-techops/src/components/journey/MiniAppTiles.tsx:50-55`） | **別クエリ**を足す（同 `:71-75` の `useQuery(['venue-layouts','list',scope,id])` が手本）。`count: null` ならバッジを出さない（`:171`）。格子は `grid-cols-2 sm:grid-cols-3 lg:grid-cols-5`（`:160`） |
 | `MiniAppSwitcher` の切替 | `ORDER` は5つ固定（`MiniAppSwitcher.tsx:25-27`） | **足さない**（§1-2） |
 
@@ -662,6 +661,16 @@ techops の利用者が `sales` 区画を持つとは限らない。**`qsheet_te
 
 ### 9-1. パッチ盤は人が転記する（機械では取れない）
 
+> **2026-09-23 更新: 初期データは外観図から書き写して入れた（migration 309）。** 利用者が完成図書の
+> 「ビデオパッチ盤外観図_1〜5」（05260281-Z001〜Z005・2026-07-01 改訂）の PDF を添付し、ページを画像にして
+> 番号ごと・A段／B段ごとに書き写した（文字は独自の符号化で埋め込まれていて抽出できないため画像で読んだ）。
+> 盤は **19枚**（VJP1900 = 32ch の TRK と同期の混在が 305 に無かったので足した）。機材名は図面の系統の見出し
+> （再生VTR・入力ルーターIN など）、名称は穴ごとの印字、シングルジャックと色付きは備考に入れた。
+> 書き写した元の JSON は `scripts/data/tech-patch-panels-20260701.json`。**人が⑤で直した値は上書きしない**
+> （機材名が空の行だけを埋める）。VJP1900 の同期は図面の印字が「Try Level Sync」だったが、利用者の確認（2026-09-23）で
+> 正しい「Tri-Level Sync」に直して入れた。エリア列は図面に置き場所の枠が無いため空のまま（⑤で人が入れる）。
+> 以下は当初の設計（人が転記する前提）の記録。
+
 **機械抽出は無理だと実測で確かめた**（§0-1）。理由は3つ:
 
 | # | 理由 |
@@ -688,7 +697,7 @@ techops の利用者が `sales` 区画を持つとは限らない。**`qsheet_te
 
 | 決めごと | 中身 |
 | --- | --- |
-| **入れ方** | **管理者が手元で回すスクリプト**（BOX を読み、`qsheet_tech_companies` 1行と `qsheet_tech_persons` 90行を入れる）。seed には入れない（本番は `SKIP_SEED=true`）。migration にも**入れない** |
+| **入れ方** | **管理者が手元で回すスクリプト**（BOX を読み、取引先 `companies` に仕入先1件・`qsheet_tech_persons` に90行を入れる。§13-5・migration 308）。seed には入れない（本番は `SKIP_SEED=true`）。migration にも**入れない** |
 | **なぜ migration ではないか** | 人の名前は**個人情報**で、migration に書くと git の履歴に永久に残り、リポジトリを読める全員が見る。退職・改名のときに履歴から消せない。中間の CSV も**git に入れない**（`.gitignore`）。会場図面が用賀のマスタを migration 299 で入れた（[`venue-layout.md`](venue-layout.md) §5-1）のと**ここだけ扱いを変える** |
 | **作業日は本文を正とする** | ファイル名の日付は本文の「作業日：」と食い違うことがある（37枚中7枚で確認。`0620メンバー表.pdf` の本文は 2026/06/02）。**本文の作業日だけを読む** |
 | **`(ver2)` は後の版が勝つ** | 同じ作業日に複数の名簿が来る。**発行日が新しいものを正**とする。改訂は役職の付け替え（CAM→CAM-A）と人の交代の両方があり得るので、単なる表記整理として無視しない |
@@ -728,7 +737,7 @@ GMO 社員（社内）と、他の協力会社は**手で足す**（⑥の「追
 
 | 段 | 何を | 終わったときに何ができるか | 門 |
 | --- | --- | --- | --- |
-| **A 器** | レジストリ `tech`／`TD`／`prod_doc_td`（§5-3・server 複製も）・migration 305（表7本＋盤18枚と空のパッチ番号1,536行）・①一覧と作成ダイアログ（名前／空から・複製）・資料番号の発番・ハブのタイル（件数は別クエリ）・左メニュー・`pcOnlyScreens` の宣言 | 技術資料が案件から辿れ、`TD-202610-0001` が採れる | `npx tsc -b client-techops`・`npm run typecheck -w server`・`npm run lint`・`npm run test`・`node scripts/check-collab-parity.mjs` |
+| **A 器** | レジストリ `tech`／`TD`／`prod_doc_td`（§5-3・server 複製も）・migration 305（表6本＋盤18枚と空のパッチ番号1,536行）・①一覧と作成ダイアログ（名前／空から・複製）・資料番号の発番・ハブのタイル（件数は別クエリ）・左メニュー・`pcOnlyScreens` の宣言 | 技術資料が案件から辿れ、`TD-202610-0001` が採れる | `npx tsc -b client-techops`・`npm run typecheck -w server`・`npm run lint`・`npm run test`・`node scripts/check-collab-parity.mjs` |
 | **B 映像パッチ＋パッチ盤** | ②の表・系統・行の追加／並べ替え／削除・機材の候補・パッチ番号の候補（機材で絞る・空きが先・使用中の印）・増設機材の手入力・名称の初期値と上書き・右パネル・⑤の盤の画面と転記（VJP100／VJP200 を人が入れる）・`shared/src/tech/patchNo.ts` | **ここで道具になる。** 増設機材の映像プランが画面で組める | 上に加え `npm run verify:ui techops`・`npm run verify:ime`・`shared/src/tech/` の Vitest |
 | **C 技術スタッフ＋技術人員** | ③の表・作業日のチップ・人の候補（会社の絞り込み・手入力）・⑥の会社と人・参加回数・§9-2 の一度きりの取り込み | 当日の技術スタッフが名前を打ち直さずに組める | 上に加え `server/tests/*-review.test.mjs`（行の可視性） |
 | **D 書き出しと冊子とスマホ** | ④の A4横（矢印表記・`shared/src/tech/patchExport.ts`）・`tech.patch`／`tech.staff` の差し込み（§8-3 の11か所）・resolver と凍結・`?return=`・確定と版・スマホ閲覧 | 紙と冊子に出て、現場のスマホで読める | 上に加え parity・resolver の review 試験（他案件の `sourceId` を拒む）・④の PC専用宣言 |
@@ -764,29 +773,30 @@ GMO 社員（社内）と、他の協力会社は**手で足す**（⑥の「追
 | 18 | `server/src/routes/index.ts:32-33` | **触らない**（`/qsheet` と `/techops` の二重マウントが自動で効く） |
 | 19 | `server/src/contexts/qsheet/access.ts:125-140` / `:148` | `canAccessTechDoc`／`canAssignTechDocProject`（`canAccessVenueLayout` の写し） |
 | 20 | `server/src/contexts/qsheet/services/docNo.service.ts:14-20` | **触らない**（`MINI_APP_BY_KEY` から読むので登録だけで効く） |
-| 21 | `server/src/shared/db/migrations/305_tech_docs.sql` | 表7本＋盤18枚と空のパッチ番号1,536行（§5-1・§9-1） |
-| 22 | `shared/src/production/manualBlocks.ts:25-38,42-61,78-201,207-217` ＋ `server/src/shared/production/manualBlocks.ts` | 段D の差し込み（§8-3 の #1〜#5） |
-| 23 | `server/src/contexts/qsheet/services/manual-resolve.service.ts:84-111` / `:181-184` | 段D の resolver（§8-3 の #6〜#8） |
-| 24 | `shared/tests/miniapps.test.ts:23-48` | 触らないが、重複があるとここで落ちる |
-| 25 | `client-techops/CLAUDE.md` の「画面一覧」表 | **実装 PR で**1行足す（この設計 PR では足さない） |
+| 21 | `server/src/shared/db/migrations/305_tech_docs.sql` | 表6本＋盤18枚と空のパッチ番号1,536行（§5-1・§9-1）。会社の表は308で `companies` に統合 |
+| 22 | `server/src/shared/db/migrations/308_tech_persons_companies.sql` | 会社を取引先 `companies` に統合（`qsheet_tech_persons.company_id`・`qsheet_tech_staff_rows.company_id`）。`qsheet_tech_companies` は DROP（§5-1・§5-2・§13-5） |
+| 23 | `shared/src/production/manualBlocks.ts:25-38,42-61,78-201,207-217` ＋ `server/src/shared/production/manualBlocks.ts` | 段D の差し込み（§8-3 の #1〜#5） |
+| 24 | `server/src/contexts/qsheet/services/manual-resolve.service.ts:84-111` / `:181-184` | 段D の resolver（§8-3 の #6〜#8） |
+| 25 | `shared/tests/miniapps.test.ts:23-48` | 触らないが、重複があるとここで落ちる |
+| 26 | `client-techops/CLAUDE.md` の「画面一覧」表 | **実装 PR で**1行足す（この設計 PR では足さない） |
 
 ---
 
 ## 13. 判断待ち（9件）
 
-**2026-09-22 時点で全件が判断待ち。** 決まったらこの表を埋め、本文を決定に合わせる。
+**2026-09-23 に全件ご判断をいただいた**（利用者との1件ずつの確認）。8件は推奨どおり、5 だけ推奨と違い「取引先 `companies` をそのまま使う」。下の論点の表は経緯として残す。
 
 | # | 決定 |
 | --- | --- |
-| 1 | （未定） |
-| 2 | （未定） |
-| 3 | （未定） |
-| 4 | （未定） |
-| 5 | （未定） |
-| 6 | （未定） |
-| 7 | （未定） |
-| 8 | （未定） |
-| 9 | （未定） |
+| 1 | 接頭辞 `TD`・キー `tech` のまま（`TD-202610-0001`） |
+| 2 | **A段＝送り出し（OUT）・B段＝受け（IN）**。画面と書き出しの説明はこのまま |
+| 3 | 「CA」の正式名称は**カメラアシスタント**。画面の表記は「CA」のまま、正式名称を補足に持つ（`shared/src/tech/roles.ts`） |
+| 4 | 1つの技術資料に複数の作業日を持たせる（いまの形） |
+| 5 | **取引先 `companies` をそのまま使う**（推奨と違う）。独自の `qsheet_tech_companies` はやめ、`qsheet_tech_persons.company_id` → `companies(id)` に移す。techops からは qsheet 権限で名前だけ読み、「会社を追加」は取引先に仕入先として追加する（会社の編集・削除は案件管理で行う） |
+| 6 | 氏名のみ。連絡先は持たない。閲覧は qsheet reader |
+| 7 | 音声パッチ（AJP）はあとの段 |
+| 8 | 増設機材と機材台帳・レンタル機材検索の接続はあとの段 |
+| 9 | 名前は「技術資料」のまま |
 
 | # | 論点 | 選択肢 | 主担当の推奨 | なぜ |
 | --- | --- | --- | --- | --- |
@@ -800,7 +810,7 @@ GMO 社員（社内）と、他の協力会社は**手で足す**（⑥の「追
 | 8 | **増設機材を機材台帳（レンタル）と結ぶか** | A. 後の段（当面は手入力の文字列）／B. 初版から `equipment_items` を引く | **A** | 引くには `/techops/…` に自前の読み取り API を作り、中で `itemService.list()` を呼ぶ必要がある（`equipment.resolver.ts:29` の前例。`/equipment/items` は `equipment` 区画必須・`equipment.routes.ts:21`）。増設機材は当日限りのレンタルが多く、台帳に無いものも入る |
 | 9 | **名前「技術資料」の再利用でよいか** | A. 再利用する／B. 別の名前にする | **A** | 旧 `client-techsheet` は PR #278・migration 211 で削除済みで、後継の収録設定・配信設定に**パッチ表もスタッフリストも入っていない**（§0 の冒頭）。名前が指すもの（技術の資料）と中身が一致する。B にするなら `docPrefix` も変わるので #1 と同時に決める |
 
-**決めてよいこと（技術・設計側で決めた）**: 表は `qsheet_tech_*`／`qsheet_patch_*` の7本（§5-1）／系統は列で持ち表にしない（§5-1）／
+**決めてよいこと（技術・設計側で決めた）**: 表は `qsheet_tech_*`／`qsheet_patch_*` の6本（§5-1）／系統は列で持ち表にしない（§5-1）／
 パッチ番号は列に持たず組み立てる（§5-1）／名前は写す（§5-2）／Yjs を使わず資料まるごとのロック（§5-4）／
 `MiniAppSwitcher` とスマホ下タブには足さない（§1-2）／初期データの入れ方（§9）。
 

@@ -38,13 +38,12 @@ import { ok, runTool, audit, REQUESTED_BY, type ToolResult } from '../helpers';
 import { requireProductionActor } from './production.access';
 import { AppError } from '../../../shared/middleware/errorHandler';
 import { queryOne } from '../../../shared/db/connection';
-import { MINI_APPS, type MiniAppKey } from '../../../shared/production/miniapps';
 import { QSHEET_BLOCK_TYPES } from '../../../shared/qsheet/blockTypes';
 import { ITEM_KINDS, COL_GROUPS } from '../../../shared/schedule/kinds';
 import { getJourneyForProject, getJourneyForDocument } from '../../qsheet/services/journey.service';
 import { SCHEDULE_STATUSES } from '../../qsheet/services/schedule.service';
 import { canAccessDoc, canAccessProposal } from '../../qsheet/access';
-import { listProductionDocs } from '../../qsheet/services/production/doc-list.service';
+import { listProductionDocs, LISTED_DOC_APPS } from '../../qsheet/services/production/doc-list.service';
 import { fetchDocForRead, getQsheetOutline, getQsheetRows } from '../../qsheet/services/production/qsheet-read.service';
 import { getDaySchedule } from '../../qsheet/services/production/schedule-read.service';
 import { findSimilarQsheets } from '../../qsheet/services/production/similar.service';
@@ -62,7 +61,12 @@ import {
 } from '../../qsheet/services/production/schedule-write.service';
 import { discardProposal } from '../../qsheet/ai/apply.service';
 
-const DOC_APP_KEYS = MINI_APPS.filter((a) => a.kind === 'document').map((a) => a.key) as [MiniAppKey, ...MiniAppKey[]];
+/**
+ * `list_production_docs` の `app` に渡せる種類。以前は `MINI_APPS` の document 種別を全部
+ * 並べていたが、一覧が読まない種類（運営マニュアル・会場図面）を渡すと台本・スケジュール表が
+ * 返っていた。一覧が実際に読む種類（`LISTED_DOC_APPS`）だけに揃える
+ */
+const DOC_APP_KEYS = [...LISTED_DOC_APPS] as [typeof LISTED_DOC_APPS[number], ...typeof LISTED_DOC_APPS[number][]];
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** 旧名（`*_qsheet` 系）の description 先頭に足す非推奨ノート。新名の説明文はそのまま流用する。 */
@@ -75,16 +79,19 @@ export function registerProductionTools(server: McpServer): void {
   server.registerTool(
     'list_production_docs',
     {
-      title: '制作資料の一覧（進行台本・スケジュール表）',
+      title: '制作資料の一覧（進行台本・スケジュール表・技術資料）',
       description:
-        '進行台本（app=sheet）とスケジュール表（app=schedule）を横断で検索する。' +
-        '見える範囲（作成者本人／共有先／system_admin）だけを返し、共有されていない資料は件数にも含めない。' +
+        '進行台本（app=sheet）・スケジュール表（app=schedule）・技術資料（app=tech）を横断で検索する。' +
+        '見える範囲（台本・スケジュール表は作成者本人／共有先、技術資料は作成者本人／案件メンバー、' +
+        'いずれも system_admin は全件）だけを返し、見えない資料は件数にも含めない。' +
+        '技術資料は日を持たないため date は常に null（date で絞ると、その日を作業日に持つ技術資料が当たる）。' +
+        '運営マニュアル・会場図面は対象外。' +
         '制作資料のツールは ONAiR ログイン連携（OAuth）が必須（共有APIキーでは 403）。',
       inputSchema: {
         project_id: z.string().optional().describe('案件 id（GLS番号ではない）'),
         gls_number: z.string().optional().describe('GLS番号（GLS-A012）。project_id の代わりに使える'),
         date: z.string().regex(DATE_RE).optional(),
-        app: z.enum(DOC_APP_KEYS).optional().describe('省略＝両方'),
+        app: z.enum(DOC_APP_KEYS).optional().describe('省略＝全部（sheet/schedule/tech）'),
         q: z.string().max(100).optional().describe('資料名・資料番号の部分一致'),
         limit: z.number().int().min(1).max(100).optional(),
         page: z.number().int().min(1).optional(),
@@ -96,8 +103,7 @@ export function registerProductionTools(server: McpServer): void {
         projectId: args.project_id,
         glsNumber: args.gls_number,
         date: args.date,
-        // DOC_APP_KEYS は MINI_APPS の document 種別だけを列挙したものなので実行時は必ず 'sheet'|'schedule'
-        app: args.app as 'sheet' | 'schedule' | undefined,
+        app: args.app,
         q: args.q,
         limit: Math.min(100, Math.max(1, args.limit ?? 20)),
         page: Math.max(1, args.page ?? 1),

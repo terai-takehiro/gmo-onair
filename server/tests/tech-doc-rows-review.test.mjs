@@ -19,6 +19,16 @@ class LockError extends Error {
 }
 const httpErrors = { NotFoundError, ValidationError, ConflictError, LockError, checkOptimisticLock() {} };
 
+/** 取引先の登録（`company-directory.service`）の偽物。`created` に呼ばれた中身を残す */
+function companyDirectory(created = []) {
+  return {
+    createVendorRecord: async (fields, userId, exec) => {
+      created.push({ fields, userId, viaTx: typeof exec === 'function' });
+      return 'co-new';
+    },
+  };
+}
+
 /** 資料行1件だけを持つ偽の DB。`log` に全ての SQL（トランザクションの中かどうか付き）を残す */
 function fakeDb(docRow) {
   const log = [];
@@ -94,11 +104,100 @@ test('fixTechDoc / takeoverTechDocLock も資料行を FOR UPDATE で押さえ�
   }
 });
 
+// createTechDoc の copy_from（PR #731 レビュー指摘 #1）。資料行の INSERT と複製元の行コピー
+// （映像パッチ行・技術スタッフ行）が**1つのトランザクション**（`withTransaction`）に入っている
+// ことを見る。以前は資料行の INSERT が自動コミットの別文で、行コピーの途中で失敗すると
+// 「中身の無い資料」だけが残った（検証用 Postgres で FK 違反を起こして実際に確認済み——
+// 修正前は `qsheet_tech_docs` に部分コピーの行が残り、修正後は 1 行も残らない）。
+function fakeCopyDb(sourcePatchRows, sourceStaffRows, { failOnPatchRowIndex = -1 } = {}) {
+  const log = [];
+  let patchInsertCount = 0;
+  const txRun = async (sql, params = []) => {
+    log.push({ sql, params, inTx: true });
+    if (/SELECT[\s\S]*FROM qsheet_tech_patch_rows WHERE tech_doc_id = \$1/.test(sql)) return sourcePatchRows;
+    if (/SELECT[\s\S]*FROM qsheet_tech_staff_rows WHERE tech_doc_id = \$1/.test(sql)) return sourceStaffRows;
+    if (/INSERT INTO qsheet_tech_patch_rows/.test(sql)) {
+      const idx = patchInsertCount++;
+      if (idx === failOnPatchRowIndex) throw new Error('verify: forced failure mid-copy');
+      return [];
+    }
+    return [];
+  };
+  const tx = {
+    execute: async (s, p) => { await txRun(s, p); },
+    queryOne: async (s, p) => (await txRun(s, p))[0],
+    queryAll: async (s, p) => txRun(s, p),
+  };
+  return {
+    log,
+    deps: {
+      queryAll: async () => { throw new Error('module-level queryAll は使わない想定（トランザクションの外）'); },
+      queryOne: async (s) => {
+        log.push({ sql: s, params: [], inTx: false });
+        return { id: 'new-doc', doc_no: 'TD-1' }; // getTechDoc(id) の返り
+      },
+      execute: async (s) => {
+        log.push({ sql: s, params: [], inTx: false });
+        throw new Error('module レベルの execute（トランザクション外）で資料/行を書いてはいけない: ' + s);
+      },
+      withTransaction: async (fn) => fn(tx),
+    },
+  };
+}
+
+async function loadDocServiceForCopy(sourcePatchRows, sourceStaffRows, opts) {
+  const db = fakeCopyDb(sourcePatchRows, sourceStaffRows, opts);
+  const mod = await loadTs('server/src/contexts/qsheet/services/tech-doc.service.ts', {
+    uuid: { v4: () => 'new-row' },
+    '../../../shared/db/connection': db.deps,
+    '../access': { isQsheetAdmin: () => false },
+    './docNo.service': { issueDocNo: async () => 'TD-1' },
+    './httpErrors': httpErrors,
+  });
+  return { mod, log: db.log };
+}
+
+test('createTechDoc(copy_from): 資料行の INSERT と行コピーは同じトランザクションに入る（モジュールレベルの execute は使わない）', async () => {
+  const { mod, log } = await loadDocServiceForCopy(
+    [{ id: 'p1', group_label: '', sort_order: 0, from_device_text: '', from_jack_id: null, from_jack_text: '', from_is_extra: false, to_device_text: '', to_jack_id: null, to_jack_text: '', to_is_extra: false, label: '', signal: '', note: '' }],
+    [{ id: 's1', work_date: '2026-10-01', role: '', person_id: null, person_name: '', company_id: null, company_name: '', note: '', sort_order: 0 }],
+  );
+  const doc = await mod.createTechDoc({ title: '複製先', programId: 'prog-1', createdBy: 'u1', copyFrom: 'src-1' });
+  assert.equal(doc.id, 'new-doc');
+  const docInsert = log.find((e) => /INSERT INTO qsheet_tech_docs/.test(e.sql));
+  const patchInsert = log.find((e) => /INSERT INTO qsheet_tech_patch_rows/.test(e.sql));
+  const staffInsert = log.find((e) => /INSERT INTO qsheet_tech_staff_rows/.test(e.sql));
+  assert.ok(docInsert?.inTx, '資料行の INSERT はトランザクションの中');
+  assert.ok(patchInsert?.inTx, '映像パッチ行のコピーはトランザクションの中');
+  assert.ok(staffInsert?.inTx, '技術スタッフ行のコピーはトランザクションの中');
+});
+
+test('createTechDoc(copy_from): 行コピーの途中で失敗したら、資料行の INSERT ごと投げる（部分コピーを残さない）', async () => {
+  const { mod, log } = await loadDocServiceForCopy(
+    [
+      { id: 'p1', group_label: '', sort_order: 0, from_device_text: '', from_jack_id: null, from_jack_text: '', from_is_extra: false, to_device_text: '', to_jack_id: null, to_jack_text: '', to_is_extra: false, label: '1行目', signal: '', note: '' },
+      { id: 'p2', group_label: '', sort_order: 1, from_device_text: '', from_jack_id: null, from_jack_text: '', from_is_extra: false, to_device_text: '', to_jack_id: null, to_jack_text: '', to_is_extra: false, label: '2行目(失敗させる)', signal: '', note: '' },
+    ],
+    [],
+    { failOnPatchRowIndex: 1 },
+  );
+  await assert.rejects(
+    mod.createTechDoc({ title: '複製先', programId: 'prog-1', createdBy: 'u1', copyFrom: 'src-1' }),
+    /forced failure mid-copy/,
+  );
+  // 資料行の INSERT・1行目のコピーはどちらも同じトランザクション（withTransaction）の中で
+  // 起きている＝2行目の失敗で fn 全体が throw し、withTransaction が ROLLBACK する対象になる。
+  // （モジュールレベルの execute で先にコミットしていないことは fakeCopyDb 側で強制している）
+  const docInsert = log.find((e) => /INSERT INTO qsheet_tech_docs/.test(e.sql));
+  assert.ok(docInsert?.inTx, '資料行の INSERT もロールバック対象の同じトランザクションの中にある');
+});
+
 test('patchJackId: 盤の id から作るので、名前が日本語だけでも・A-B と AB でもぶつからない', async () => {
   const { patchJackId } = await loadTs('server/src/contexts/qsheet/services/tech-master.service.ts', {
     uuid: { v4: () => 'x' },
     '../../../shared/db/connection': { queryAll: async () => [], queryOne: async () => undefined, execute: async () => {}, withTransaction: async (fn) => fn({}) },
     './httpErrors': httpErrors,
+    '../../../shared/services/company-directory.service': companyDirectory(),
   });
   assert.notEqual(patchJackId('panel-a', 1, 'A'), patchJackId('panel-b', 1, 'A'));
   assert.notEqual(patchJackId('panel-a', 1, 'A'), patchJackId('panel-a', 1, 'B'));
@@ -126,10 +225,124 @@ test('createPanel: 日本語だけの名前の盤を2枚足しても、それぞ
       withTransaction: async (fn) => fn(tx),
     },
     './httpErrors': httpErrors,
+    '../../../shared/services/company-directory.service': companyDirectory(),
   });
   await createPanel({ name: '第一調整室', jack_count: 32, kind: 'jack', location: '', model: '' }, 'u1');
   await createPanel({ name: '第二調整室', jack_count: 32, kind: 'jack', location: '', model: '' }, 'u1');
   assert.equal(inserted.filter((j) => j.panel === 'panel-1').length, 64);
   assert.equal(inserted.filter((j) => j.panel === 'panel-2').length, 64);
   assert.equal(new Set(inserted.map((j) => j.id)).size, 128, '128 個の id がすべて別');
+});
+
+// PR #737 のレビュー指摘 #2:
+test('createPanel: TRK（trunk）は ch数=32 以外を拒む（一覧・盤の絵が「TRK 32」と決め打っているため）', async () => {
+  const { createPanel } = await loadTs('server/src/contexts/qsheet/services/tech-master.service.ts', {
+    uuid: { v4: () => 'panel-1' },
+    '../../../shared/db/connection': {
+      queryAll: async () => [],
+      queryOne: async () => undefined,
+      execute: async () => {},
+      withTransaction: async (fn) => fn({ queryOne: async () => ({ n: 1 }), execute: async () => {} }),
+    },
+    './httpErrors': httpErrors,
+    '../../../shared/services/company-directory.service': companyDirectory(),
+  });
+  await assert.rejects(
+    createPanel({ name: 'TRK盤', jack_count: 48, kind: 'trunk', location: '', model: '' }, 'u1'),
+    (e) => e.code === 'BAD_REQUEST',
+  );
+});
+
+// PR #737 のレビュー指摘 #1・#3: 「会社を追加」で顧客専用（is_vendor=false）・技術人員0人の
+// 取引先を再利用して返したとき、通常の一覧の絞り込み（人数 or 仕入先）だけでは出ず、
+// 画面が選べたはずの会社を選べなかった。`include` に渡した id は例外的に出す。
+test('listCompanies: 人数0・is_vendor=falseの会社でも include に渡した id は一覧に出す', async () => {
+  const rows = [];
+  const { listCompanies } = await loadTs('server/src/contexts/qsheet/services/tech-master.service.ts', {
+    uuid: { v4: () => 'x' },
+    '../../../shared/db/connection': {
+      queryAll: async (sql, params) => {
+        rows.push({ sql, params });
+        // 偽の DB: `include` の id が WHERE 句に含まれているかだけを検査する
+        assert.ok(/co\.id = ANY\(\$1::text\[\]\)/.test(sql), 'include の id を条件に含める');
+        assert.deepEqual(params, [['co-reused']]);
+        return [{ id: 'co-reused', name: '顧客専用のA社', short_name: '', person_count: 0 }];
+      },
+      queryOne: async () => undefined,
+      execute: async () => {},
+      withTransaction: async (fn) => fn({}),
+    },
+    './httpErrors': httpErrors,
+    '../../../shared/services/company-directory.service': companyDirectory(),
+  });
+  const result = await listCompanies(['co-reused']);
+  assert.equal(rows.length, 1);
+  assert.deepEqual(result.map((r) => r.id), ['co-reused']);
+});
+
+test('listCompanies: includeIds を渡さないときは空配列（既定の絞り込みだけ）', async () => {
+  const params = [];
+  const { listCompanies } = await loadTs('server/src/contexts/qsheet/services/tech-master.service.ts', {
+    uuid: { v4: () => 'x' },
+    '../../../shared/db/connection': {
+      queryAll: async (sql, p) => { params.push(p); return []; },
+      queryOne: async () => undefined,
+      execute: async () => {},
+      withTransaction: async (fn) => fn({}),
+    },
+    './httpErrors': httpErrors,
+    '../../../shared/services/company-directory.service': companyDirectory(),
+  });
+  await listCompanies();
+  assert.deepEqual(params[0], [[]]);
+});
+
+// 4) 技術人員の会社は案件管理の取引先（companies）そのもの（tech-docs.md §13-5・migration 308）。
+//    techops からの「会社を追加」は、同じ名前の取引先があればそれを返し、無ければ
+//    取引先の登録の入口（createVendorRecord）を同じトランザクションで通して仕入先として作る。
+test('createCompany: 同じ名前の取引先があれば作らずにそれを返す', async () => {
+  const created = [];
+  const tx = {
+    queryOne: async (sql) => (/FROM companies WHERE name/.test(sql) ? { id: 'co-existing' } : undefined),
+    execute: async () => { throw new Error('既存を返すときは書き込まない'); },
+  };
+  const { createCompany } = await loadTs('server/src/contexts/qsheet/services/tech-master.service.ts', {
+    uuid: { v4: () => 'x' },
+    '../../../shared/db/connection': {
+      queryAll: async () => [],
+      queryOne: async (sql, params) => (/FROM companies co/.test(sql) ? { id: params[0], name: 'N', short_name: '', person_count: 0 } : undefined),
+      execute: async () => {},
+      withTransaction: async (fn) => fn(tx),
+    },
+    './httpErrors': httpErrors,
+    '../../../shared/services/company-directory.service': companyDirectory(created),
+  });
+  const row = await createCompany({ name: '  株式会社ヌーベルバーグ ' }, 'u1');
+  assert.equal(row.id, 'co-existing');
+  assert.equal(created.length, 0);
+});
+
+test('createCompany: 無ければ仕入先として取引先の入口を通して作り、短い名前を足す', async () => {
+  const created = [];
+  const writes = [];
+  const tx = {
+    queryOne: async () => undefined,
+    execute: async (sql, params) => { writes.push({ sql, params }); },
+  };
+  const { createCompany } = await loadTs('server/src/contexts/qsheet/services/tech-master.service.ts', {
+    uuid: { v4: () => 'x' },
+    '../../../shared/db/connection': {
+      queryAll: async () => [],
+      queryOne: async (sql, params) => (/FROM companies co/.test(sql) ? { id: params[0], name: 'N', short_name: 'S', person_count: 0 } : undefined),
+      execute: async () => {},
+      withTransaction: async (fn) => fn(tx),
+    },
+    './httpErrors': httpErrors,
+    '../../../shared/services/company-directory.service': companyDirectory(created),
+  });
+  const row = await createCompany({ name: '新しい協力会社', short_name: '新協力' }, 'u1');
+  assert.equal(row.id, 'co-new');
+  assert.deepEqual(created, [{ fields: { name: '新しい協力会社' }, userId: 'u1', viaTx: true }]);
+  assert.ok(writes.some((w) => /UPDATE companies SET short_name/.test(w.sql) && w.params[0] === '新協力'));
+  await assert.rejects(() => createCompany({ name: '  ' }, 'u1'), (e) => e.code === 'BAD_REQUEST');
 });

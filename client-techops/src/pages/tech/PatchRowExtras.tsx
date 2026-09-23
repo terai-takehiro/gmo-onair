@@ -8,6 +8,13 @@ import { patchRowLine } from "@gmo-onair/shared/src/tech/patchExport";
 import type { TechPatchRow } from "@gmo-onair/shared/src/tech/types";
 import { extraDevicesOf, groupRowsByLabel, patchNoStatsOf, type JackInfo } from "./patchDerive";
 
+/** 端子盤の印（AV-1 など、多芯トランクの行き先。機材名の右に出す） */
+export function TerminalTag() {
+  return (
+    <span className="shrink-0 rounded-badge bg-muted px-1.5 py-0.5 text-badge text-muted-foreground">端子盤</span>
+  );
+}
+
 /** 増設機材の印（機材名の右に出す） */
 export function ExtraTag() {
   return (

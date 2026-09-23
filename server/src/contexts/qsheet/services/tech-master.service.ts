@@ -1,7 +1,7 @@
 /**
  * 技術資料のマスタ — パッチ盤（`qsheet_patch_panels` / `qsheet_patch_jacks`）と
- * 会社・技術人員（`qsheet_tech_companies` / `qsheet_tech_persons`）。
- * 設計: docs/design/v4/tech-docs.md §5-1・§5-5・§9。
+ * 会社・技術人員（会社は案件管理の取引先 `companies`・人は `qsheet_tech_persons`）。
+ * 設計: docs/design/v4/tech-docs.md §5-1・§5-5・§9・§13-5（会社は取引先を使う・migration 308）。
  *
  * 組織共通のマスタなので案件には紐づかない（行の可視性は `qsheet` reader 以上で一律）。
  * 書き込みは manager だけ——権限はルーター側（`tech-masters.routes.ts`）で見る。
@@ -14,6 +14,7 @@
  */
 import { v4 as uuid } from 'uuid';
 import { queryAll, queryOne, execute, withTransaction, type Row } from '../../../shared/db/connection';
+import { createVendorRecord } from '../../../shared/services/company-directory.service';
 import { NotFoundError, ValidationError } from './httpErrors';
 
 const PANEL_COLUMNS = `
@@ -120,13 +121,15 @@ export function patchJackId(panelId: string, jackNo: number, jackRow: 'A' | 'B')
 /** 盤を1枚足す（manager）。空のパッチ番号（ch数 × A/B の2段）も一緒に作る */
 export async function createPanel(input: CreatePanelInput, userId: string): Promise<Row> {
   const name = (input.name || '').trim();
-  if (!name) throw new ValidationError('盤の名前を指定してください');
+  if (!name) throw new ValidationError('パッチ盤の名前を入力してください');
   const jackCount = Number(input.jack_count);
-  if (jackCount !== 32 && jackCount !== 48) throw new ValidationError('ch数は 32 か 48 を指定してください');
+  if (jackCount !== 32 && jackCount !== 48) throw new ValidationError('ch数は 32 または 48 を選択してください');
   const kind = input.kind === 'trunk' ? 'trunk' : 'jack';
+  // TRK盤は TRK1〜32 の固定（一覧・盤の絵が「TRK 32」と決め打っている）。48chのTRK盤を作らせない
+  if (kind === 'trunk' && jackCount !== 32) throw new ValidationError('TRK の盤は 32ch です');
 
   const existing = await queryOne('SELECT id FROM qsheet_patch_panels WHERE name = $1', [name]);
-  if (existing) throw new ValidationError('同じ名前の盤があります');
+  if (existing) throw new ValidationError('同じ名前のパッチ盤があります。別の名前を入力してください');
 
   const id = uuid();
   // 盤と空のパッチ番号を1つのトランザクションで作る（途中で落ちて番号が欠けた盤を残さない）
@@ -161,7 +164,7 @@ export async function updatePanel(id: string, userId: string, body: Record<strin
   for (const f of PANEL_TEXT_FIELDS) {
     if (f in body) {
       const v = typeof body[f] === 'string' ? (body[f] as string).slice(0, 500) : '';
-      if (f === 'name' && !v.trim()) throw new ValidationError('盤の名前を指定してください');
+      if (f === 'name' && !v.trim()) throw new ValidationError('パッチ盤の名前を入力してください');
       sets.push(`${f} = $${params.push(v)}`);
     }
   }
@@ -170,7 +173,7 @@ export async function updatePanel(id: string, userId: string, body: Record<strin
     `UPDATE qsheet_patch_panels SET ${sets.join(', ')} WHERE id = $${params.push(id)} RETURNING id`,
     params,
   );
-  if (!updated) throw new NotFoundError('盤が見つかりません');
+  if (!updated) throw new NotFoundError('パッチ盤が見つかりません');
   const row = await getPanel(id);
   if (!row) throw new Error('updatePanel: UPDATE 直後の SELECT が空でした');
   return row;
@@ -200,78 +203,80 @@ export async function updateJack(panelId: string, jackId: string, userId: string
 }
 
 // ============================================================
-// 会社
+// 会社（= 案件管理の取引先 `companies`。§13-5・migration 308）
 // ============================================================
 
-export async function listCompanies(): Promise<Row[]> {
+/*
+ * ⚠️ `companies` は案件管理（sales）の持ち物で、`GET /companies` は `requirePermission('sales')`。
+ *    techops の利用者が sales を持つとは限らないので、ここは **qsheet 権限のまま
+ *    読むのに要る列（id・name・short_name・人数）だけ**を出す（連絡先・支払条件などは出さない）。
+ *    取引先の名前の変更・削除は案件管理で行う（techops からは直さない）。
+ */
+const COMPANY_SELECT = `
+  SELECT co.id, co.name, COALESCE(co.short_name, '') AS short_name,
+         (SELECT COUNT(*) FROM qsheet_tech_persons p
+           WHERE p.company_id = co.id AND p.deleted_at IS NULL)::int AS person_count
+  FROM companies co
+`;
+
+/**
+ * 技術人員の会社の候補（`TechCompany[]`）。**技術人員が1人以上いる会社、または仕入先**
+ * （`is_vendor`）で、削除されていないもの。人数の多い順 → 名前順。
+ *
+ * `includeIds` は上の条件に関わらず必ず入れる会社の id（レビュー指摘）。**「会社を追加」で
+ * 顧客専用（`is_vendor=false`）・技術人員0人の取引先を再利用して返したとき**、この条件だけでは
+ * 一覧に出ず、画面が選べたはずの会社を選べなくなっていた。作った直後のクライアントが自分の id を
+ * `?include=` で渡し、その1件だけ例外的に出す（取引先の行自体は変えない）。
+ */
+export async function listCompanies(includeIds: string[] = []): Promise<Row[]> {
   return queryAll(`
-    SELECT c.id, c.name, c.short_name, c.company_id, c.sort_order, c.note,
-           (SELECT COUNT(*) FROM qsheet_tech_persons p
-             WHERE p.tech_company_id = c.id AND p.deleted_at IS NULL) AS person_count
-    FROM qsheet_tech_companies c
-    WHERE c.deleted_at IS NULL
-    ORDER BY c.sort_order, c.name
-  `);
+    SELECT * FROM (${COMPANY_SELECT}
+      WHERE co.deleted_at IS NULL
+        AND (co.is_vendor = TRUE
+             OR EXISTS (SELECT 1 FROM qsheet_tech_persons p2
+                         WHERE p2.company_id = co.id AND p2.deleted_at IS NULL)
+             OR co.id = ANY($1::text[]))
+    ) t
+    ORDER BY t.person_count DESC, t.name
+  `, [includeIds]);
 }
 
 async function getCompany(id: string): Promise<Row | undefined> {
-  const rows = await listCompanies();
-  return rows.find((r) => r.id === id);
+  return queryOne(`${COMPANY_SELECT} WHERE co.id = $1 AND co.deleted_at IS NULL`, [id]);
 }
 
-export async function createCompany(body: Record<string, unknown>): Promise<Row> {
-  const name = typeof body.name === 'string' ? body.name.trim() : '';
-  if (!name) throw new ValidationError('会社の名前を指定してください');
-  const id = uuid();
-  const next = await queryOne('SELECT COALESCE(MAX(sort_order), 0) + 1 AS n FROM qsheet_tech_companies');
-  await execute(
-    `INSERT INTO qsheet_tech_companies (id, name, short_name, company_id, sort_order, note)
-     VALUES ($1, $2, $3, $4, $5, $6)`,
-    [id, name.slice(0, 200), typeof body.short_name === 'string' ? body.short_name.slice(0, 200) : '',
-      typeof body.company_id === 'string' && body.company_id ? body.company_id : null,
-      Number(next?.n ?? 1), typeof body.note === 'string' ? body.note.slice(0, 2000) : ''],
-  );
+/**
+ * 協力会社を取引先に足す（manager）。**同じ名前の取引先が既にあればそれを返す**（二重に作らない）。
+ *
+ * ⚠️ techops から `companies` に行を作るのはここだけ。§13-5 の決定（2026-09-23・利用者のご判断）で
+ *    「技術人員の会社は取引先そのもの」になり、⑥の「会社を追加」を残すために
+ *    **仕入先（is_vendor）として名前と短い名前だけを登録する**道を認めてもらったもの。
+ *    登録は `company-directory.service.ts`（取引先の登録の唯一の入口）を通す。
+ */
+export async function createCompany(body: Record<string, unknown>, userId: string): Promise<Row> {
+  const name = typeof body.name === 'string' ? body.name.trim().slice(0, 200) : '';
+  if (!name) throw new ValidationError('会社の名前を入力してください');
+  const shortName = typeof body.short_name === 'string' ? body.short_name.trim().slice(0, 200) : '';
+
+  const id = await withTransaction(async (tx) => {
+    const existing = await tx.queryOne(
+      'SELECT id FROM companies WHERE name = $1 AND deleted_at IS NULL ORDER BY created_at, id LIMIT 1',
+      [name],
+    );
+    if (existing) return existing.id as string;
+    const newId = await createVendorRecord({ name }, userId, (sql, params) => tx.execute(sql, params));
+    // `createVendorRecord` は仕入先の画面に合わせて短い名前を持たないので、ここで足す
+    if (shortName) await tx.execute('UPDATE companies SET short_name = $1 WHERE id = $2', [shortName, newId]);
+    return newId;
+  });
   const row = await getCompany(id);
   if (!row) throw new Error('createCompany: INSERT 直後の SELECT が空でした');
   return row;
 }
 
-export async function updateCompany(id: string, body: Record<string, unknown>): Promise<Row> {
-  const sets: string[] = ['updated_at = NOW()'];
-  const params: unknown[] = [];
-  for (const f of ['name', 'short_name', 'note'] as const) {
-    if (f in body) {
-      const v = typeof body[f] === 'string' ? (body[f] as string).slice(0, f === 'note' ? 2000 : 200) : '';
-      if (f === 'name' && !v.trim()) throw new ValidationError('会社の名前を指定してください');
-      sets.push(`${f} = $${params.push(v)}`);
-    }
-  }
-  if ('company_id' in body) {
-    sets.push(`company_id = $${params.push(typeof body.company_id === 'string' && body.company_id ? body.company_id : null)}`);
-  }
-  if ('sort_order' in body) sets.push(`sort_order = $${params.push(Number(body.sort_order) || 0)}`);
-  const updated = await queryOne(
-    `UPDATE qsheet_tech_companies SET ${sets.join(', ')} WHERE id = $${params.push(id)} AND deleted_at IS NULL RETURNING id`,
-    params,
-  );
-  if (!updated) throw new NotFoundError('会社が見つかりません');
-  const row = await getCompany(id);
-  if (!row) throw new Error('updateCompany: UPDATE 直後の SELECT が空でした');
-  return row;
-}
-
-/** 論理削除。人が残っている会社は消さない（資料の中の名前は写してあるので消えない） */
-export async function deleteCompany(id: string): Promise<void> {
-  const person = await queryOne(
-    'SELECT 1 FROM qsheet_tech_persons WHERE tech_company_id = $1 AND deleted_at IS NULL LIMIT 1',
-    [id],
-  );
-  if (person) throw new ValidationError('この会社の技術人員が残っています。先に人を削除してください');
-  const deleted = await queryOne(
-    'UPDATE qsheet_tech_companies SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL RETURNING id',
-    [id],
-  );
-  if (!deleted) throw new NotFoundError('会社が見つかりません');
+async function assertCompany(companyId: string): Promise<void> {
+  const company = await queryOne('SELECT id FROM companies WHERE id = $1 AND deleted_at IS NULL', [companyId]);
+  if (!company) throw new NotFoundError('会社が見つかりません');
 }
 
 // ============================================================
@@ -279,14 +284,14 @@ export async function deleteCompany(id: string): Promise<void> {
 // ============================================================
 
 const PERSON_SELECT = `
-  SELECT p.id, p.tech_company_id, p.name, p.kana, p.main_roles, p.active, p.partner_id, p.note,
-         c.name AS company_name, c.short_name AS company_short_name,
+  SELECT p.id, p.company_id, p.name, p.kana, p.main_roles, p.active, p.partner_id, p.note,
+         COALESCE(c.name, '') AS company_name, COALESCE(c.short_name, '') AS company_short_name,
          (SELECT COUNT(DISTINCT (s.tech_doc_id, s.work_date)) FROM qsheet_tech_staff_rows s
            WHERE s.person_id = p.id) AS participation_count,
          (SELECT to_char(MAX(s.work_date), 'YYYY-MM-DD') FROM qsheet_tech_staff_rows s
            WHERE s.person_id = p.id) AS last_work_date
   FROM qsheet_tech_persons p
-  JOIN qsheet_tech_companies c ON p.tech_company_id = c.id
+  LEFT JOIN companies c ON p.company_id = c.id
 `;
 
 export interface PersonFilter {
@@ -301,7 +306,7 @@ export async function listPersons(filter: PersonFilter): Promise<Row[]> {
   const params: unknown[] = [];
   let sql = `${PERSON_SELECT} WHERE p.deleted_at IS NULL`;
   if (!filter.include_inactive) sql += ' AND p.active';
-  if (filter.company) sql += ` AND p.tech_company_id = $${params.push(filter.company)}`;
+  if (filter.company) sql += ` AND p.company_id = $${params.push(filter.company)}`;
   if (filter.q) {
     const n = params.push(`%${filter.q}%`);
     sql += ` AND (p.name ILIKE $${n} OR p.kana ILIKE $${n} OR c.name ILIKE $${n} OR c.short_name ILIKE $${n})`;
@@ -321,15 +326,14 @@ function roles(v: unknown): string[] {
 
 export async function createPerson(body: Record<string, unknown>): Promise<Row> {
   const name = typeof body.name === 'string' ? body.name.trim() : '';
-  if (!name) throw new ValidationError('名前を指定してください');
-  const companyId = typeof body.tech_company_id === 'string' ? body.tech_company_id : '';
-  if (!companyId) throw new ValidationError('会社を指定してください');
-  const company = await queryOne('SELECT id FROM qsheet_tech_companies WHERE id = $1 AND deleted_at IS NULL', [companyId]);
-  if (!company) throw new NotFoundError('会社が見つかりません');
+  if (!name) throw new ValidationError('名前を入力してください');
+  const companyId = typeof body.company_id === 'string' ? body.company_id : '';
+  if (!companyId) throw new ValidationError('会社を選択してください');
+  await assertCompany(companyId);
 
   const id = uuid();
   await execute(
-    `INSERT INTO qsheet_tech_persons (id, tech_company_id, name, kana, main_roles, active, partner_id, note)
+    `INSERT INTO qsheet_tech_persons (id, company_id, name, kana, main_roles, active, partner_id, note)
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
     [id, companyId, name.slice(0, 200), typeof body.kana === 'string' ? body.kana.slice(0, 200) : '',
       roles(body.main_roles), body.active === false ? false : true,
@@ -347,15 +351,14 @@ export async function updatePerson(id: string, body: Record<string, unknown>): P
   for (const f of ['name', 'kana', 'note'] as const) {
     if (f in body) {
       const v = typeof body[f] === 'string' ? (body[f] as string).slice(0, f === 'note' ? 2000 : 200) : '';
-      if (f === 'name' && !v.trim()) throw new ValidationError('名前を指定してください');
+      if (f === 'name' && !v.trim()) throw new ValidationError('名前を入力してください');
       sets.push(`${f} = $${params.push(v)}`);
     }
   }
-  if ('tech_company_id' in body) {
-    const companyId = typeof body.tech_company_id === 'string' ? body.tech_company_id : '';
-    const company = await queryOne('SELECT id FROM qsheet_tech_companies WHERE id = $1 AND deleted_at IS NULL', [companyId]);
-    if (!company) throw new NotFoundError('会社が見つかりません');
-    sets.push(`tech_company_id = $${params.push(companyId)}`);
+  if ('company_id' in body) {
+    const companyId = typeof body.company_id === 'string' ? body.company_id : '';
+    await assertCompany(companyId);
+    sets.push(`company_id = $${params.push(companyId)}`);
   }
   if ('main_roles' in body) sets.push(`main_roles = $${params.push(roles(body.main_roles))}`);
   if ('active' in body) sets.push(`active = $${params.push(body.active !== false)}`);

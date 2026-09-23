@@ -1,5 +1,5 @@
 /**
- * 技術資料のマスタ — パッチ盤（`/tech-panels`）・会社（`/tech-companies`）・
+ * 技術資料のマスタ — パッチ盤（`/tech-panels`）・会社（`/tech-companies`。中身は取引先 `companies`）・
  * 技術人員（`/tech-persons`）。設計: docs/design/v4/tech-docs.md §5-4（権限）・§5-5（API）。
  *
  * 読むのは `qsheet` reader 以上（組織共通のマスタなので案件の可視性は見ない）。
@@ -21,8 +21,6 @@ import {
   updateJack,
   listCompanies,
   createCompany,
-  updateCompany,
-  deleteCompany,
   listPersons,
   createPerson,
   updatePerson,
@@ -47,7 +45,7 @@ router.get('/tech-panels/devices', wrap(async (_req, res) => {
 
 router.get('/tech-panels/:id', wrap(async (req: Request, res: Response) => {
   const detail = await getPanelDetail(p1(req.params.id));
-  if (!detail) throw new NotFoundError('盤が見つかりません');
+  if (!detail) throw new NotFoundError('パッチ盤が見つかりません');
   res.json({ success: true, data: detail });
 }));
 
@@ -74,25 +72,26 @@ router.patch('/tech-panels/:id/jacks/:jackId', manager, wrap(async (req: Request
   res.json({ success: true, data: row });
 }));
 
-// ── 会社 ─────────────────────────────────────────────────
+// ── 会社（= 案件管理の取引先 `companies`。§13-5） ─────────────
+// 読むのは qsheet reader（id・名前・短い名前・人数だけ）。足すのは manager で、
+// 取引先に仕入先として登録する（同じ名前があればそれを返す）。
+// ⚠️ 名前の変更・削除の口は持たない——取引先の編集は案件管理で行う。
 
-router.get('/tech-companies', wrap(async (_req, res) => {
-  res.json({ success: true, data: await listCompanies() });
+router.get('/tech-companies', wrap(async (req: Request, res: Response) => {
+  // `?include=<id>`（複数可）— 「会社を追加」で再利用した会社を、通常の絞り込みに
+  // 関わらず一覧へ出す（レビュー指摘。listCompanies のコメント参照）
+  const raw = req.query.include;
+  const includeIds = Array.isArray(raw)
+    ? raw.filter((v): v is string => typeof v === 'string')
+    : typeof raw === 'string' && raw
+      ? [raw]
+      : [];
+  res.json({ success: true, data: await listCompanies(includeIds) });
 }));
 
 router.post('/tech-companies', manager, wrap(async (req: Request, res: Response) => {
-  const row = await createCompany(req.body as Record<string, unknown>);
+  const row = await createCompany(req.body as Record<string, unknown>, req.user!.id);
   res.status(201).json({ success: true, data: row });
-}));
-
-router.patch('/tech-companies/:id', manager, wrap(async (req: Request, res: Response) => {
-  const row = await updateCompany(p1(req.params.id), req.body as Record<string, unknown>);
-  res.json({ success: true, data: row });
-}));
-
-router.delete('/tech-companies/:id', manager, wrap(async (req: Request, res: Response) => {
-  await deleteCompany(p1(req.params.id));
-  res.json({ success: true, data: { id: p1(req.params.id) } });
 }));
 
 // ── 技術人員 ─────────────────────────────────────────────

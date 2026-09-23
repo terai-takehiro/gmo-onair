@@ -65,6 +65,7 @@ export interface TechStaffRow {
   role: string;
   person_id: string | null;
   person_name: string;
+  /** 取引先（`companies.id`。§13-5）。台帳から引いたときだけ入る */
   company_id: string | null;
   company_name: string;
   note: string;
@@ -143,19 +144,24 @@ export interface PatchDeviceOption {
   jacks: Array<Pick<PatchJack, 'id' | 'panel_id' | 'jack_no' | 'jack_row' | 'label' | 'signal'> & { panel_name: string }>;
 }
 
+/**
+ * 技術人員の会社。**案件管理の取引先（`companies`）そのもの**（§13-5 の決定・migration 308）。
+ * techops からは読むのに要る列だけを出す（取引先の編集は案件管理で行う）。
+ */
 export interface TechCompany {
+  /** `companies.id` */
   id: string;
   name: string;
+  /** 取引先の短い名前（未設定は空文字） */
   short_name: string;
-  company_id: string | null;
-  sort_order: number;
-  note: string;
+  /** この会社の技術人員の数（削除した人を除く） */
   person_count: number;
 }
 
 export interface TechPerson {
   id: string;
-  tech_company_id: string;
+  /** 所属する会社（`companies.id`。§13-5） */
+  company_id: string | null;
   name: string;
   kana: string;
   main_roles: string[];

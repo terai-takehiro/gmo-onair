@@ -198,7 +198,7 @@ export default function TechDocPage() {
         }
       >
         <DocMenu
-          open={menuOpen} onOpen={setMenuOpen} canManage={canManage} isFixed={!!isFixed}
+          open={menuOpen} onOpen={setMenuOpen} canManage={canManage} canEditPerm={canEditPerm} isFixed={!!isFixed}
           onDuplicate={() => void onDuplicate()}
           onFix={() => void run(() => doc.fix())}
           onUnfix={() => void run(() => doc.unfix())}
@@ -293,10 +293,12 @@ function TabLink({ to, label, n, on }: { to: string; label: string; n: number; o
   );
 }
 
-function DocMenu({ open, onOpen, canManage, isFixed, onDuplicate, onFix, onUnfix, onDelete }: {
+function DocMenu({ open, onOpen, canManage, canEditPerm, isFixed, onDuplicate, onFix, onUnfix, onDelete }: {
   open: boolean;
   onOpen: (v: boolean) => void;
   canManage: boolean;
+  /** `editor` 以上か（API が `editor` を要求する複製・削除の表示に使う。`tech-docs.routes.ts`） */
+  canEditPerm: boolean;
   isFixed: boolean;
   onDuplicate: () => void;
   onFix: () => void;
@@ -306,6 +308,8 @@ function DocMenu({ open, onOpen, canManage, isFixed, onDuplicate, onFix, onUnfix
   const item = "flex h-9 w-full items-center px-3 text-left text-sub text-foreground hover:bg-muted/30";
   const boxRef = useRef<HTMLDivElement>(null);
   usePopoverDismiss(boxRef, open, () => onOpen(false));
+  const hasItems = canEditPerm || canManage;
+  if (!hasItems) return null;
   return (
     <div ref={boxRef} className="relative shrink-0">
       <Button variant="outline" size="icon" className="h-10 w-10" aria-label="その他の操作" onClick={() => onOpen(!open)}>
@@ -313,16 +317,18 @@ function DocMenu({ open, onOpen, canManage, isFixed, onDuplicate, onFix, onUnfix
       </Button>
       {open && (
         <div className="absolute right-0 top-full z-20 mt-1 w-44 overflow-hidden rounded-card border border-border bg-card py-1 shadow-lg">
-          <button type="button" className={item} onClick={() => { onOpen(false); onDuplicate(); }}>複製する</button>
+          {canEditPerm && <button type="button" className={item} onClick={() => { onOpen(false); onDuplicate(); }}>複製する</button>}
           {canManage && !isFixed && <button type="button" className={item} onClick={() => { onOpen(false); onFix(); }}>確定する</button>}
           {canManage && isFixed && <button type="button" className={item} onClick={() => { onOpen(false); onUnfix(); }}>確定を解除</button>}
-          <button
-            type="button"
-            className="flex h-9 w-full items-center px-3 text-left text-sub text-destructive hover:bg-destructive-surface"
-            onClick={() => { onOpen(false); onDelete(); }}
-          >
-            削除
-          </button>
+          {canEditPerm && (
+            <button
+              type="button"
+              className="flex h-9 w-full items-center px-3 text-left text-sub text-destructive hover:bg-destructive-surface"
+              onClick={() => { onOpen(false); onDelete(); }}
+            >
+              削除
+            </button>
+          )}
         </div>
       )}
     </div>

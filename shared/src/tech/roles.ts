@@ -13,3 +13,25 @@ export function roleOrder(role: string): number {
   const i = (TECH_ROLES as readonly string[]).indexOf(role);
   return i < 0 ? TECH_ROLES.length : i;
 }
+
+/**
+ * 役職の略号の正式名称（**確かなものだけ**。画面では略号の `title` と小さな補足に出す）。
+ * `CA` は §13-3 の決定で「カメラアシスタント」。意味の確定していない略号
+ * （`CAM-A`・`CA-A`・`LD-A`・`PA MIX`・`3Play`・`TP`・`Dv`）は載せない——推測で書いた名前が
+ * 画面に出ると、それが正しいように見えてしまう。`配信管理` は略号ではないので要らない。
+ */
+export const TECH_ROLE_NAMES: Readonly<Record<string, string>> = {
+  SW: 'スイッチャー',
+  CAM: 'カメラ',
+  CA: 'カメラアシスタント',
+  VE: 'ビデオエンジニア',
+  MIX: '音声',
+  AUD: '音声',
+  LD: '照明',
+  PA: '場内音響',
+};
+
+/** 役職の正式名称（無ければ空文字） */
+export function roleName(role: string): string {
+  return TECH_ROLE_NAMES[role] ?? '';
+}

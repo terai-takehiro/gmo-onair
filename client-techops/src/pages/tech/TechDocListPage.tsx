@@ -48,12 +48,15 @@ function TechDocCard({
   onDuplicate,
   onDelete,
   busy,
+  canEdit,
 }: {
   doc: TechDocListItem;
   onOpen: (id: string) => void;
   onDuplicate: (doc: TechDocListItem) => void;
   onDelete: (doc: TechDocListItem) => void;
   busy: boolean;
+  /** `editor` 以上だけ複製・削除を出す（API が `editor` を要求するため） */
+  canEdit: boolean;
 }) {
   return (
     <section className="flex flex-col rounded-card border border-border bg-card p-4">
@@ -81,27 +84,31 @@ function TechDocCard({
         <Button type="button" variant="outline" className="min-h-tap flex-1" onClick={() => onOpen(doc.id)}>
           開く
         </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          className="min-h-tap"
-          onClick={() => onDuplicate(doc)}
-          disabled={busy}
-        >
-          <Copy className="mr-1 h-4 w-4" aria-hidden="true" />複製する
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="min-h-tap min-w-tap shrink-0"
-          onClick={() => onDelete(doc)}
-          disabled={busy || doc.status === "fixed"}
-          title={doc.status === "fixed" ? "確定した資料は削除できません" : "削除"}
-          aria-label="削除"
-        >
-          <Trash2 className="h-4 w-4" aria-hidden="true" />
-        </Button>
+        {canEdit && (
+          <Button
+            type="button"
+            variant="ghost"
+            className="min-h-tap"
+            onClick={() => onDuplicate(doc)}
+            disabled={busy}
+          >
+            <Copy className="mr-1 h-4 w-4" aria-hidden="true" />複製する
+          </Button>
+        )}
+        {canEdit && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className="min-h-tap min-w-tap shrink-0"
+            onClick={() => onDelete(doc)}
+            disabled={busy || doc.status === "fixed"}
+            title={doc.status === "fixed" ? "確定した資料は削除できません" : "削除"}
+            aria-label="削除"
+          >
+            <Trash2 className="h-4 w-4" aria-hidden="true" />
+          </Button>
+        )}
       </div>
     </section>
   );
@@ -179,6 +186,9 @@ export default function TechDocListPage() {
   const queryClient = useQueryClient();
   const { hasPermission } = useAuth();
   const canManage = hasPermission("qsheet", "manager");
+  // API 側は `editor` 以上（`tech-docs.routes.ts`）。reader には作成・複製・削除を出さない
+  // （見せて 403 にするより、そもそも出さない）
+  const canEdit = hasPermission("qsheet", "editor");
   const [searchParams, setSearchParams] = useSearchParams();
   const [createOpen, setCreateOpen] = useState(false);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
@@ -265,9 +275,11 @@ export default function TechDocListPage() {
         title="技術資料"
         sub="映像パッチと技術スタッフを案件ごとにまとめ、書き出して配布する"
         primaryAction={
-          <Button className="min-h-tap" onClick={() => setCreateOpen(true)}>
-            <Plus className="mr-1 h-4 w-4" aria-hidden="true" />技術資料を作成
-          </Button>
+          canEdit ? (
+            <Button className="min-h-tap" onClick={() => setCreateOpen(true)}>
+              <Plus className="mr-1 h-4 w-4" aria-hidden="true" />技術資料を作成
+            </Button>
+          ) : undefined
         }
       />
 
@@ -310,7 +322,7 @@ export default function TechDocListPage() {
             <EmptyState
               icon={<Cable />}
               title="この条件に合う技術資料はありません"
-              description="「技術資料を作成」から最初の1件を作成できます。"
+              description={canEdit ? "「技術資料を作成」から最初の1件を作成できます。" : "作成できるのは編集の権限がある人だけです。"}
             />
           )}
 
@@ -320,6 +332,7 @@ export default function TechDocListPage() {
                 key={doc.id}
                 doc={doc}
                 busy={busy}
+                canEdit={canEdit}
                 onOpen={(id) => navigate(`/techops/tech-docs/${id}`)}
                 onDuplicate={(d) => duplicateMutation.mutate(d)}
                 onDelete={(d) => void askDelete(d)}
@@ -334,15 +347,17 @@ export default function TechDocListPage() {
         </aside>
       </div>
 
-      <CreateTechDocDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        lockedOwner={hasOwnerFilter ? { projectId: projectFilter, programId: programFilter, label: ownerName ?? "" } : undefined}
-        onCreated={(row) => {
-          queryClient.invalidateQueries({ queryKey: ["tech-docs", "list"] });
-          navigate(`/techops/tech-docs/${row.id}`);
-        }}
-      />
+      {canEdit && (
+        <CreateTechDocDialog
+          open={createOpen}
+          onOpenChange={setCreateOpen}
+          lockedOwner={hasOwnerFilter ? { projectId: projectFilter, programId: programFilter, label: ownerName ?? "" } : undefined}
+          onCreated={(row) => {
+            queryClient.invalidateQueries({ queryKey: ["tech-docs", "list"] });
+            navigate(`/techops/tech-docs/${row.id}`);
+          }}
+        />
+      )}
     </PageShell>
   );
 }

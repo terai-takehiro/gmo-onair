@@ -65,17 +65,38 @@ export function deviceSubLabel(device: PatchDeviceOption, kinds: PanelKinds): st
   return [signal, `${device.jacks.length}ch`, firstNo].filter(Boolean).join(" ・ ");
 }
 
+/** 名称が `TRK1` の形（多芯トランクの番号）か */
+export function isTrunkLabel(label: string): boolean {
+  return /^TRK\s*\d+$/i.test(label.trim());
+}
+
+/**
+ * 端子盤（AV-1〜AV-9・SW-CP など）か。名称に TRK が付く番号を1つでも持つ系統は、
+ * 機材ではなく多芯トランクの行き先の端子盤として扱う（2026-09-23 の利用者のご判断）。
+ * 盤の上では同じ「機材名」の列に入っているので、名称から見分ける。
+ */
+export function isTerminalDevice(device: PatchDeviceOption | undefined): boolean {
+  return !!device && device.jacks.some((j) => isTrunkLabel(j.label));
+}
+
+export const TERMINAL_GROUP = "端子盤";
+
 export interface DeviceGroup {
   area: string;
   items: PatchDeviceOption[];
 }
 
-/** 検索語で絞り、設置場所ごとにまとめる（場所は最初に出てきた順） */
+/** 検索語で絞り、設置場所ごとにまとめる（場所は最初に出てきた順。端子盤は最後に1つにまとめる） */
 export function groupDevices(devices: PatchDeviceOption[] | undefined, query: string): DeviceGroup[] {
   const q = query.trim().toLowerCase();
   const groups: DeviceGroup[] = [];
+  const terminals: PatchDeviceOption[] = [];
   for (const d of devices ?? []) {
     if (q && !d.device_name.toLowerCase().includes(q) && !d.area.toLowerCase().includes(q)) continue;
+    if (isTerminalDevice(d)) {
+      terminals.push(d);
+      continue;
+    }
     const area = d.area.trim() || "そのほか";
     let g = groups.find((x) => x.area === area);
     if (!g) {
@@ -84,6 +105,7 @@ export function groupDevices(devices: PatchDeviceOption[] | undefined, query: st
     }
     g.items.push(d);
   }
+  if (terminals.length > 0) groups.push({ area: TERMINAL_GROUP, items: terminals });
   return groups;
 }
 

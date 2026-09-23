@@ -18,8 +18,9 @@
  *        の `.dc.html`。デザイナーのハンドオフ原文（`mockups/` 直下）は見ない（原文は直さない決めごと）。
  *  見る: HTML コメント・JS コメント・タグを落とした**画面に出る文字**（ラベルは JS の配列にもあるので script の中も見る。
  *        タグの属性は落とすが、利用者に見える placeholder・title・aria-label・alt の値は残す）。
- *  止める: `forbidden-wording`（画面に出さないと決めた言葉。check-ui-tokens.mjs と同じ）と
- *          `metaphor-wording`（開発文書の比喩語）。
+ *  止める: `forbidden-wording`（画面に出さないと決めた言葉。check-ui-tokens.mjs と同じ）、
+ *          `metaphor-wording`（開発文書の比喩語。パッチ盤の「口」・紙の比喩の「紙」も含む）、
+ *          `wago-verb-wording`（標準語系に統一していない和語動詞。`docs/wording.md` ルール8・9）。
  *
  * ── 記録（BASELINE）────────────────────────────────────────
  *
@@ -50,8 +51,25 @@ const RULES = [
     // 開発文書の比喩語（`docs/wording.md` ルール11）。1文字の語は普通の語と衝突するので比喩の形だけを見る。
     // 「小道具」「大道具」「棚卸」「凍結」は業務語なので除く。「生きている」「凍る」「古びる」と、
     // 入口・出口の比喩の形（「〜の入口」「入口は」「出口を」）も見る（Codex レビュー #720）。
-    re: /決めごと|きめごと|(?<![小大])道具|手つき|作法|手入れ|棚(?!卸)|札(?=[がをに]付)|(?<=の)帯(?=[をがに]|$)|(?<=の)木(?![曜材])|(?<=の)種(?![類別])|(?<=の)器(?=[にをが]|$)|生きて|凍(?!結)|古び|(?<=の)(?:入口|出口)|(?:入口|出口)(?=[はを])/g,
-    why: '開発文書の比喩語は画面に出しません（`docs/wording.md` ルール11: 道具→アプリ／機能・決めごと→ルール・棚→区分・札→表示・帯→バナー／ツールバー・木→ツリー・種→候補・手つき／作法→操作・生きている／凍る／古びる→有効／固定／期限切れ・入口／出口→メニュー／リンク）',
+    // 「口」（パッチ盤の穴を指す比喩。画面語は パッチ番号／ch）は数える形（「3口」「口の数」「使う口」
+    // 「空いている口」「の口」）だけを見る。「窓口・入口・出口・人口・口座・口頭・口コミ」は業務語・別の語なので除く
+    // （「入口・出口」は上の別パターンが見る。「口座」等は「の口」の直後チェックで除く）。
+    // 「紙」（画面語は 用紙／PDF）は「用紙・表紙・和紙」以外の形を見る（「紙幣」は無関係な語なので除く）。
+    re: /決めごと|きめごと|(?<![小大])道具|手つき|作法|手入れ|棚(?!卸)|札(?=[がをに]付)|(?<=の)帯(?=[をがに]|$)|(?<=の)木(?![曜材])|(?<=の)種(?![類別])|(?<=の)器(?=[にをが]|$)|生きて|凍(?!結)|古び|(?<=の)(?:入口|出口)|(?:入口|出口)(?=[はを])|(?<![窓入出人])(?:\d+\s*口(?!座|頭|コミ)|口の数|使う口|空いている口|空き口|の口(?!座))|(?<![用表和])紙(?!幣)/g,
+    why: '開発文書の比喩語は画面に出しません（`docs/wording.md` ルール11: 道具→アプリ／機能・決めごと→ルール・棚→区分・札→表示・帯→バナー／ツールバー・木→ツリー・種→候補・手つき／作法→操作・生きている／凍る／古びる→有効／固定／期限切れ・入口／出口→メニュー／リンク・口→パッチ番号／ch・紙→用紙／PDF）',
+  },
+  {
+    id: 'wago-verb-wording',
+    // check-ui-tokens.mjs の `wago-verb-wording` と同じ正規表現（片方だけ直すとまた食い違うので、足すときは両方）。
+    // 動詞は標準語系（追加／編集／削除／キャンセル／保存・検索）に統一する（`docs/wording.md` ルール8・9）。
+    // 和語系（足す・直す・消す・やめる・入れる・打つ・見くらべる・探す）の活用形だけを見る
+    // （「作業・作成・作品」「足元」「直前・直接・直近」「消費・消去」「入力」「打ち合わせ」は
+    //   活用形が続かないので構造上ヒットしない）。
+    // 除く: 「手作り」（複合名詞）／「見直す・見直し」（ルール11で手入れ・育てるの言い換え先そのもの）／
+    //       「手直し」（複合名詞）／「取り消す」・「消し込み」（ルール8で残す業務語）／
+    //       「配布をやめる」（ルール8で残す業務語）／「足し算」「消し込」（算・込が続く名詞）。
+    re: /(?<!手)作(?:る|り(?!物)|って)|足(?:す|し(?!算)|して)|(?<![見手])直(?:す|し(?!込)|して)|(?<!取り)消(?:す|し(?!込)|して)|(?<!配布を)やめ(?:る|て)|入れ(?:る|て|ます)|打(?:つ|って|つと)|見くらべ|探(?:す|し)/g,
+    why: '動詞が2系統になっています（`docs/wording.md` ルール8・9: 作る→作成・足す→追加・直す→編集・消す→削除・やめる→キャンセル・入れる／打つ→入力・見くらべる→比較・探す→検索）',
   },
 ];
 
@@ -89,7 +107,57 @@ for (const file of files) {
 }
 
 /** ファイル別の記録（2026-09-22 の実測。減らしたら --update で下げる） */
-const BASELINE = {};
+const BASELINE = {
+  "docs/design/v4/mockups/keep-report/Builder.dc.html": { "wago-verb-wording": 8 },
+  "docs/design/v4/mockups/keep-report/DeckMap.dc.html": { "wago-verb-wording": 5 },
+  "docs/design/v4/mockups/keep-report/Flow.dc.html": { "wago-verb-wording": 9 },
+  "docs/design/v4/mockups/keep-report/Main.dc.html": { "wago-verb-wording": 4 },
+  "docs/design/v4/mockups/keep-report/Mobile.dc.html": { "wago-verb-wording": 1 },
+  "docs/design/v4/mockups/native/production-manual/Editor.dc.html": { "metaphor-wording": 1, "wago-verb-wording": 5 },
+  "docs/design/v4/mockups/native/production-manual/Insert.dc.html": { "metaphor-wording": 4, "wago-verb-wording": 1 },
+  "docs/design/v4/mockups/native/production-manual/Main.dc.html": { "wago-verb-wording": 3 },
+  "docs/design/v4/mockups/native/production-manual/Map.dc.html": { "metaphor-wording": 4, "wago-verb-wording": 2 },
+  "docs/design/v4/mockups/native/production-manual/Mobile.dc.html": { "wago-verb-wording": 1 },
+  "docs/design/v4/mockups/native/production-manual/OrgChart.dc.html": { "metaphor-wording": 1, "wago-verb-wording": 7 },
+  "docs/design/v4/mockups/native/production-manual/Preview.dc.html": { "metaphor-wording": 3, "wago-verb-wording": 4 },
+  "docs/design/v4/mockups/native/production-manual/Sheet.dc.html": { "metaphor-wording": 1 },
+  "docs/design/v4/mockups/native/production-manual/Text.dc.html": { "wago-verb-wording": 1 },
+  "docs/design/v4/mockups/native/qsheet-top/Main.dc.html": { "wago-verb-wording": 5 },
+  "docs/design/v4/mockups/native/qsheet-top/Mobile.dc.html": { "wago-verb-wording": 4 },
+  "docs/design/v4/mockups/native/telop-cg/Editor.dc.html": { "wago-verb-wording": 8 },
+  "docs/design/v4/mockups/native/telop-cg/Live.dc.html": { "wago-verb-wording": 3 },
+  "docs/design/v4/mockups/native/telop-cg/Main.dc.html": { "wago-verb-wording": 2 },
+  "docs/design/v4/mockups/native/telop-cg/Map.dc.html": { "wago-verb-wording": 3 },
+  "docs/design/v4/mockups/native/telop-cg/Mobile.dc.html": { "wago-verb-wording": 1 },
+  "docs/design/v4/mockups/native/telop-cg/MobileList.dc.html": { "wago-verb-wording": 2 },
+  "docs/design/v4/mockups/native/telop-cg/Settings.dc.html": { "wago-verb-wording": 8 },
+  "docs/design/v4/mockups/native/venue-layout/Arrange.dc.html": { "wago-verb-wording": 6 },
+  "docs/design/v4/mockups/native/venue-layout/Editor.dc.html": { "wago-verb-wording": 11 },
+  "docs/design/v4/mockups/native/venue-layout/Main.dc.html": { "wago-verb-wording": 8 },
+  "docs/design/v4/mockups/native/venue-layout/Manual.dc.html": { "metaphor-wording": 7, "wago-verb-wording": 10 },
+  "docs/design/v4/mockups/native/venue-layout/Map.dc.html": { "metaphor-wording": 2, "wago-verb-wording": 1 },
+  "docs/design/v4/mockups/native/venue-layout/Mobile.dc.html": { "wago-verb-wording": 4 },
+  "docs/design/v4/mockups/native/venue-layout/Preview.dc.html": { "metaphor-wording": 6, "wago-verb-wording": 2 },
+  "docs/design/v4/mockups/native/wiki/Ask.dc.html": { "wago-verb-wording": 4 },
+  "docs/design/v4/mockups/native/wiki/Database.dc.html": { "wago-verb-wording": 1 },
+  "docs/design/v4/mockups/native/wiki/Editor.dc.html": { "wago-verb-wording": 3 },
+  "docs/design/v4/mockups/native/wiki/Main.dc.html": { "wago-verb-wording": 1 },
+  "docs/design/v4/mockups/native/wiki/Map.dc.html": { "wago-verb-wording": 3 },
+  "docs/design/v4/mockups/native/wiki/Mobile.dc.html": { "wago-verb-wording": 1 },
+  "docs/design/v4/mockups/native/wiki/Page.dc.html": { "wago-verb-wording": 5 },
+  "docs/design/v4/mockups/native/wiki/Review.dc.html": { "wago-verb-wording": 2 },
+  "docs/design/v4/mockups/regular/AddEpisodes.dc.html": { "wago-verb-wording": 4 },
+  "docs/design/v4/mockups/regular/Billing.dc.html": { "wago-verb-wording": 3 },
+  "docs/design/v4/mockups/regular/Ledger.dc.html": { "wago-verb-wording": 1 },
+  "docs/design/v4/mockups/regular/Main.dc.html": { "wago-verb-wording": 6 },
+  "docs/design/v4/mockups/regular/Mobile.dc.html": { "wago-verb-wording": 1 },
+  "docs/design/v4/mockups/tasks-redesign/Main.dc.html": { "wago-verb-wording": 2 },
+  "docs/design/v4/mockups/tasks-redesign/Mobile.dc.html": { "wago-verb-wording": 1 },
+  "docs/design/v4/mockups/weekly-redesign/Before.dc.html": { "wago-verb-wording": 4 },
+  "docs/design/v4/mockups/weekly-redesign/Draft.dc.html": { "wago-verb-wording": 1 },
+  "docs/design/v4/mockups/weekly-redesign/Main.dc.html": { "wago-verb-wording": 1 },
+  "docs/design/v4/mockups/weekly-redesign/Mobile.dc.html": { "wago-verb-wording": 1 }
+};
 
 const counts = {};
 for (const f of findings) {
@@ -102,7 +170,7 @@ if (process.argv.includes('--update')) {
   const json = JSON.stringify(sorted, null, 2).replace(/\n {2}"([^"]+)": \{\n {4}/g, '\n  "$1": { ').replace(/\n {4}"/g, ' "').replace(/\n {2}\}/g, ' }');
   const self = fileURLToPath(import.meta.url);
   const src = readFileSync(self, 'utf8');
-  writeFileSync(self, src.replace(/const BASELINE = \{[\s\S]*?\n\};/, `const BASELINE = ${json};`));
+  writeFileSync(self, src.replace(/const BASELINE = \{[\s\S]*?\};/, `const BASELINE = ${json};`));
   console.log('[mock-wording] 記録を書き直しました:\n' + json);
   process.exit(0);
 }

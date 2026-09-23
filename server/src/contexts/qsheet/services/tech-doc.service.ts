@@ -190,7 +190,7 @@ function isLockStale(lockedAt: unknown): boolean {
 /** 確定していないこと＋ロックを他人が新しく持っていないことの両方を見る */
 export function assertTechDocEditable(doc: Row, userId: string): void {
   if (doc.status === 'fixed') {
-    throw new ValidationError('確定済みです。編集するには確定を解いてください');
+    throw new ValidationError('確定済みです。編集するには確定を解除してください');
   }
   const lockedBy = (doc.locked_by as string | null) ?? null;
   if (lockedBy && lockedBy !== userId && !isLockStale(doc.locked_at)) {
@@ -236,7 +236,7 @@ export async function createTechDoc(input: CreateTechDocInput): Promise<Row> {
   const hasProject = !!input.projectId;
   const hasProgram = !!input.programId;
   if (hasProject === hasProgram) {
-    throw new ValidationError('project_id と program_id はどちらか一方だけ指定してください');
+    throw new ValidationError('案件か番組のどちらか一方を選んでください');
   }
 
   // 存在しない番組 id をそのまま INSERT すると FK 違反で 500 になるので、先に見る
@@ -247,29 +247,43 @@ export async function createTechDoc(input: CreateTechDocInput): Promise<Row> {
   }
 
   const id = uuid();
+  // 発番だけは独自のシーケンス（`issueDocNo`）を使うので、資料行・行コピーのトランザクション
+  // の外で採ってよい（失敗してもロールバックする対象が無い）
   const docNo = await issueDocNo('tech');
-  await execute(
-    `INSERT INTO qsheet_tech_docs (id, doc_no, title, project_id, program_id, copied_from, created_by, updated_by)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
-    [id, docNo, (input.title || '').slice(0, MAX_TITLE), input.projectId || null, input.programId || null,
-      input.copyFrom || null, input.createdBy],
-  );
 
-  if (input.copyFrom) {
-    await copyRowsInto(id, input.copyFrom);
-  }
+  // ⚠️ 資料行の INSERT と複製元の行コピーは**1つのトランザクション**で行う。別々の
+  //    自動コミットの文に分けると、行コピーの途中で失敗したときに資料行だけが残る
+  //    （中身の無い資料が一覧に出る）。`mutateRows` と同じ `withTransaction` を使う。
+  await withTransaction(async (tx) => {
+    await tx.execute(
+      `INSERT INTO qsheet_tech_docs (id, doc_no, title, project_id, program_id, copied_from, created_by, updated_by)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
+      [id, docNo, (input.title || '').slice(0, MAX_TITLE), input.projectId || null, input.programId || null,
+        input.copyFrom || null, input.createdBy],
+    );
+    if (input.copyFrom) {
+      await copyRowsInto(tx, id, input.copyFrom);
+    }
+  });
 
   const row = await getTechDoc(id);
   if (!row) throw new Error('createTechDoc: INSERT 直後の SELECT が空でした');
   return row;
 }
 
-/** 複製元の映像パッチ行・技術スタッフ行を丸ごと写す（id だけ採り直す） */
-async function copyRowsInto(newId: string, sourceId: string): Promise<void> {
-  const patchRows = await listPatchRows(sourceId);
-  const staffRows = await listStaffRows(sourceId);
+/** 複製元の映像パッチ行・技術スタッフ行を丸ごと写す（id だけ採り直す）。
+ *  資料行の INSERT と同じトランザクション（`tx`）の中で読み書きする */
+async function copyRowsInto(tx: TxClient, newId: string, sourceId: string): Promise<void> {
+  const patchRows = await tx.queryAll(
+    `SELECT ${PATCH_ROW_COLUMNS} FROM qsheet_tech_patch_rows WHERE tech_doc_id = $1 ORDER BY sort_order, created_at`,
+    [sourceId],
+  );
+  const staffRows = await tx.queryAll(
+    `SELECT ${STAFF_ROW_COLUMNS} FROM qsheet_tech_staff_rows WHERE tech_doc_id = $1 ORDER BY work_date, sort_order, created_at`,
+    [sourceId],
+  );
   for (const r of patchRows) {
-    await execute(
+    await tx.execute(
       `INSERT INTO qsheet_tech_patch_rows
          (id, tech_doc_id, group_label, sort_order, from_device_text, from_jack_id, from_jack_text, from_is_extra,
           to_device_text, to_jack_id, to_jack_text, to_is_extra, label, signal, note)
@@ -279,7 +293,7 @@ async function copyRowsInto(newId: string, sourceId: string): Promise<void> {
     );
   }
   for (const r of staffRows) {
-    await execute(
+    await tx.execute(
       `INSERT INTO qsheet_tech_staff_rows
          (id, tech_doc_id, work_date, role, person_id, person_name, company_id, company_name, note, sort_order)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)`,
@@ -363,7 +377,7 @@ export async function fixTechDoc(id: string, userId: string): Promise<Row> {
   await withTransaction(async (tx) => {
     const doc = await tx.queryOne('SELECT id, status FROM qsheet_tech_docs WHERE id = $1 AND deleted_at IS NULL FOR UPDATE', [id]);
     if (!doc) throw new NotFoundError('技術資料が見つかりません');
-    if (doc.status !== 'draft') throw new ValidationError('先に確定を解いてください');
+    if (doc.status !== 'draft') throw new ValidationError('先に確定を解除してください');
     await tx.execute(
       `UPDATE qsheet_tech_docs
        SET status = 'fixed', rev = rev + 1, fixed_at = NOW(), fixed_by = $2, updated_by = $2, updated_at = NOW()
@@ -416,7 +430,7 @@ export async function acquireTechDocLock(id: string, userId: string): Promise<Ro
   const doc = await getLockRow(id);
   if (!doc) throw new NotFoundError('技術資料が見つかりません');
   if (!acquired) {
-    if (doc.status === 'fixed') throw new ValidationError('確定済みです。編集するには確定を解いてください');
+    if (doc.status === 'fixed') throw new ValidationError('確定済みです。編集するには確定を解除してください');
     const name = (doc.locked_by_name as string | null) ?? null;
     throw new LockError(`${name || '他のユーザー'} さんが編集中です`, (doc.locked_by as string | null) ?? null, name);
   }
