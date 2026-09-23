@@ -29,7 +29,7 @@ import { assertPageEditable } from './wiki-lock.service';
 import { newWikiPageId, selectPageRow, rebuildPageLinks } from './wiki-page.service';
 import { parentDatabaseItems } from './wiki-row-props';
 import { recordWikiDraftReject } from './wiki-ai-corrections.service';
-import { markGapWrittenTx } from './wiki-ai-gap.service';
+import { markGapWrittenTx, readOpenGapFor } from './wiki-ai-gap.service';
 import { sanitizeProps } from '../wiki-props';
 import type { WikiPropValue } from '../wiki-props';
 
@@ -154,6 +154,8 @@ export async function createPage(user: WikiUser, input: CreatePageInput): Promis
 
   const parentId = input.parent_id ? String(input.parent_id) : null;
   await assertValidParent(spaceId, parentId);
+  // 足りないページから作るとき: 見てよい質問か（manager・読めるスペース・まだ `open`）
+  if (input.gap_id) await readOpenGapFor(user, String(input.gap_id));
 
   let body = typeof input.body_md === 'string' ? input.body_md : '';
   let icon = input.icon ?? null;

@@ -50,7 +50,10 @@ export interface CreateSpaceInput {
   owner_user_id?: string | null;
 }
 
-export type UpdateSpaceInput = Partial<Omit<CreateSpaceInput, 'key'>>;
+export type UpdateSpaceInput = Partial<Omit<CreateSpaceInput, 'key'>> & {
+  /** 開いたときの `updated_at`。他の人が先に保存していたら 409（古い閲覧範囲で上書きしない） */
+  expected_updated_at?: string;
+};
 
 /** `{ success, data }` の包みを外す */
 function unwrap<T>(res: { data: { success?: boolean; data: T } }): T {

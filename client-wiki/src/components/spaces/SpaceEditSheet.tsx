@@ -71,7 +71,7 @@ export default function SpaceEditSheet({ open, onOpenChange, space }: SpaceEditS
       const description = String(fd.get('description') ?? '');
       const common = { name, description: description || null, visibility, owner_user_id: owner || null };
       return space
-        ? updateSpace(space.id, common)
+        ? updateSpace(space.id, { ...common, expected_updated_at: space.updated_at })
         : createSpace({ ...common, key: String(fd.get('key') ?? '') });
     },
     onSuccess: (row) => {

@@ -23,7 +23,7 @@
  */
 import { v4 as uuid } from 'uuid';
 import { queryAll, queryOne, execute, withTransaction, type Row, type TxClient } from '../../../shared/db/connection';
-import { NotFoundError, ValidationError } from '../../qsheet/services/httpErrors';
+import { NotFoundError, ValidationError, checkOptimisticLock } from '../../qsheet/services/httpErrors';
 import { canReadSpace, readableSpaceIds, type WikiUser } from './wiki-access.service';
 
 export const WIKI_SPACE_VISIBILITIES = ['all', 'members'] as const;
@@ -210,6 +210,8 @@ export interface UpdateSpaceInput {
   visibility?: unknown;
   owner_user_id?: unknown;
   sort_order?: unknown;
+  /** 画面が開いたときの `updated_at`。違えば 409（下の注記） */
+  expected_updated_at?: unknown;
 }
 
 /**
@@ -243,6 +245,19 @@ export async function updateSpace(user: WikiUser, spaceId: string, input: Update
   }
 
   await withTransaction(async (tx) => {
+    /*
+     * ⚠️ **開いたあとに他の人が保存していたら 409 で止めます**（#740 の Codex 指摘・P1）。
+     * 画面は保存のたびに名前・説明・閲覧範囲・担当を全部送るので、止めないと、
+     * 1人が「メンバーだけ」に切り替えたあと、前から開いていたもう1人が説明だけ直して
+     * 保存した瞬間に、**古い「全員」で上書きされて限定のスペースが全員に開いて**いました。
+     * ページの保存と同じ `checkOptimisticLock` を使います（送られなければ素通し）。
+     */
+    const locked = await tx.queryOne(
+      'SELECT updated_at FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+      [spaceId],
+    );
+    if (!locked) throw new NotFoundError('スペースが見つかりません');
+    checkOptimisticLock(input.expected_updated_at, { updated_at: locked.updated_at, updated_by: null }, user.id, 'このスペース');
     await tx.execute(
       `UPDATE wiki_spaces
           SET name = ?, description = ?, visibility = ?, owner_user_id = ?, sort_order = ?, updated_at = NOW()

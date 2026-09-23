@@ -16,7 +16,7 @@
 import { execute, queryAll, queryOne, withTransaction, type Row } from '../../../shared/db/connection';
 import { recordAiOutput } from '../../../shared/services/ai-output.service';
 import { NotFoundError, ValidationError } from '../../qsheet/services/httpErrors';
-import { assertReadablePage, isWikiEditor, isWikiManager, readableSpaceIds, type WikiUser } from './wiki-access.service';
+import { assertReadablePage, isWikiEditor, readableSpaceIds, type WikiUser } from './wiki-access.service';
 import { callWikiAi, wikiTierFor } from './wiki-ai-llm';
 import {
   WIKI_DRAFT_KIND, WIKI_DRAFT_PROMPT_VERSION, WIKI_MATERIAL_CHARS_PER_PAGE,
@@ -24,7 +24,7 @@ import {
 } from './wiki-ai.constants';
 import { WikiDraftSchema, WIKI_DRAFT_SYSTEM, buildDraftPrompt } from './wiki-ai-prompts';
 import { wikiAdviceFor } from './wiki-ai-digest.service';
-import { assertGapOpen, markGapWrittenTx } from './wiki-ai-gap.service';
+import { markGapWrittenTx, readOpenGapFor } from './wiki-ai-gap.service';
 import { assertOwnThread, listMessages, markSpawnedPage } from './wiki-ai-thread.service';
 import { savePageInternal, selectPageRow } from './wiki-page.service';
 import { createPage } from './wiki-write.service';
@@ -195,10 +195,9 @@ export async function draftPage(user: WikiUser, input: DraftInput): Promise<Draf
    */
   let gapQuestion: string | null = null;
   if (input.gapId) {
-    if (!isWikiManager(user)) throw new NotFoundError('足りないページの質問が見つかりません');
-    await assertGapOpen(String(input.gapId));
-    const gap = await queryOne('SELECT question FROM wiki_ai_gaps WHERE id = ?', [String(input.gapId)]);
-    gapQuestion = String(gap?.question ?? '').trim() || null;
+    // manager か・読めるスペースの質問か・まだ `open` か（`readOpenGapFor` の注記）
+    const gap = await readOpenGapFor(user, String(input.gapId));
+    gapQuestion = gap.question.trim() || null;
   }
 
   const materials = await gatherDraftMaterials(user, input, gapQuestion);

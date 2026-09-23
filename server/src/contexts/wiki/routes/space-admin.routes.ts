@@ -56,7 +56,7 @@ router.patch('/manage/spaces/:id', ...canManage, wrap(async (req, res) => {
   }
   // 渡された項目だけを渡す（`undefined` を入れると「空にする」と区別できなくなる）
   const input: UpdateSpaceInput = {};
-  for (const k of ['name', 'description', 'visibility', 'owner_user_id', 'sort_order'] as const) {
+  for (const k of ['name', 'description', 'visibility', 'owner_user_id', 'sort_order', 'expected_updated_at'] as const) {
     if (Object.prototype.hasOwnProperty.call(b, k)) input[k] = b[k];
   }
   res.json({ success: true, data: await updateSpace(req.user!, p1(req.params.id), input) });

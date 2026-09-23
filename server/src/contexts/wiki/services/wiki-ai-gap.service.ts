@@ -164,6 +164,28 @@ const MARK_GAP_WRITTEN_SQL = `
    WHERE id = ? AND status = 'open'`;
 
 /**
+ * 足りないページの質問を、**その人が見てよいときだけ**返す（ページを作る側の入口）。
+ *
+ * ⚠️ 見る条件は一覧（`listGaps`）と同じです（#740 の Codex 指摘・P1）:
+ * manager であること、**棚が読めるスペースか棚が未推定**であること。
+ * 一覧だけで絞っていたころは、「メンバーだけ」のスペースから外された manager が、
+ * 開いたままの画面に残っていた id で質問の文を AI の下書きの材料にでき、
+ * その結果を読めるスペースへ書き出せました。どれかに外れたら存在ごと隠します（404）。
+ * そのうえで、まだ `open` かを見ます（下の `assertGapOpen`）。
+ */
+export async function readOpenGapFor(user: WikiUser, gapId: string): Promise<{ question: string }> {
+  if (!isWikiManager(user)) throw new NotFoundError('足りないページの質問が見つかりません');
+  const spaceIds = await readableSpaceIds(user);
+  const row = await queryOne(
+    'SELECT question FROM wiki_ai_gaps WHERE id = ? AND (space_id IS NULL OR space_id = ANY(?))',
+    [gapId, spaceIds],
+  );
+  if (!row) throw new NotFoundError('足りないページの質問が見つかりません');
+  await assertGapOpen(gapId);
+  return { question: String(row.question ?? '') };
+}
+
+/**
  * 結びつける前の確認（AI の下書きは AI を呼ぶ**前に**見る。呼んでから断ると費用だけかかる）。
  * 無い → 404／もう片づいている → 400（押し直しても同じなので、読み込み直しを促す）。
  */
