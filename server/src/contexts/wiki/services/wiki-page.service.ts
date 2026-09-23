@@ -12,6 +12,7 @@ import {
   execute,
   withTransaction,
   type Row,
+  type TxClient,
 } from '../../../shared/db/connection';
 import {
   NotFoundError,
@@ -19,10 +20,11 @@ import {
   checkOptimisticLock,
 } from '../../qsheet/services/httpErrors';
 import { headingsText, extractPageLinks } from '../wiki-markdown';
+import type { WikiPropValue } from '../wiki-props';
 import { assertReadablePage, readableSpaceIds, type WikiUser } from './wiki-access.service';
 import { assertPageEditable } from './wiki-lock.service';
 import { breadcrumbOf } from './wiki-path.service';
-import { checkedRowProps } from './wiki-row-props';
+import { assertPersonsEligible, checkedRowProps } from './wiki-row-props';
 import { recordWikiDraftCorrections } from './wiki-ai-corrections.service';
 
 /** 閲覧の記録の入口（`wiki_page_views.via` の CHECK と同じ5つ） */
@@ -249,6 +251,12 @@ export interface SavePageOptions {
    * （プロジェクト管理の「AI 自身は除外」と同じ穴）。
    */
   skipAiFeedback?: boolean;
+  /**
+   * 保存と**同じ取引の中で**先にやること（ページの行の錠を取る前に呼ぶ）。
+   * 下書き（`wiki-draft.service`）が「足りないページ」の質問を押さえるのに使います —
+   * 別の取引で押さえて書き換えが落ちると、押さえだけが残るため（#740 の Codex 指摘・P2）。
+   */
+  inTx?: (tx: TxClient) => Promise<void>;
 }
 
 export async function savePageInternal(
@@ -269,13 +277,14 @@ export async function savePageInternal(
    *    ONAiR リンクの相手を引く問い合わせが増えるので、行の錠を掴んだまま待たせません。
    *    行でなければ渡された値がそのまま返ります（段A・段B の振る舞いを変えない）。
    */
-  const checkedProps = input.props === undefined
+  const checked = input.props === undefined
     ? undefined
     : await checkedRowProps(pageId, input.props);
 
   /** 下書きから公開に進めた保存か（下の ⑦ で使う） */
   let publishedNow = false;
   await withTransaction(async (tx) => {
+    if (opts.inTx) await opts.inTx(tx);
     // 同じページへの同時保存を直列にする（FOR UPDATE）。突き合わせだけでは、
     // 2人が同じ `updated_at` を持って同時に来たときに両方が通ってしまう
     const cur = await tx.queryOne(
@@ -311,7 +320,17 @@ export async function savePageInternal(
     const title = String(pick(input.title, cur.title)).trim();
     const body = String(pick(input.body_md, cur.body_md) ?? '');
     const status = String(pick(input.status, cur.status));
-    const props = pick(checkedProps, cur.props as Record<string, unknown>) ?? {};
+    // 人の項目は**錠の中の値と比べて**見る（`checkedRowProps` の注記）。錠の外で読んだ値と
+    // 比べると、同時に直した人の値を古い（停止中の）人で上書きしても「変わっていない」になる
+    if (checked?.items) {
+      await assertPersonsEligible(
+        checked.items,
+        checked.props as Record<string, WikiPropValue>,
+        (cur.props ?? {}) as Record<string, unknown>,
+        tx,
+      );
+    }
+    const props = pick(checked?.props, cur.props as Record<string, unknown>) ?? {};
     const tags = pick(input.tags, cur.tags as string[]) ?? [];
     const rev = Number(cur.rev) + 1;
 

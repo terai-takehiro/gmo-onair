@@ -17,7 +17,7 @@
  * ⚠️ **行ではないページの `props` は触りません。** テンプレートから写した値・
  * 取り込んだ `.md` の値がそのまま残ります（段A・段B からの振る舞いを変えない）。
  */
-import { queryAll, queryOne } from '../../../shared/db/connection';
+import { queryAll, queryOne, type TxClient } from '../../../shared/db/connection';
 import { ValidationError } from '../../qsheet/services/httpErrors';
 import { WIKI_ELIGIBLE } from './wiki-access.service';
 import {
@@ -169,20 +169,23 @@ function messageFor(item: WikiItem, value: WikiPropValue): string {
 /**
  * 保存の直前に通す1本（`savePageInternal` から呼ぶ）。
  *
- * - 行でなければ**渡された値をそのまま**返す（段A・段B の振る舞いを変えない）
+ * - 行でなければ**渡された値をそのまま**返す（`items` は null。段A・段B の振る舞いを変えない）
  * - 行なら型を見て、知らない項目を落とし、ONAiR リンクの相手の存在を確かめる
+ *
+ * ⚠️ **人の項目はここでは見ません**（#740 の Codex 指摘・P2）。「いま入っている値と同じなら見ない」の
+ * 「いま」を錠の外で読むと、2人が同時に行を直したときに古い値が「変わっていない」扱いで
+ * 戻せました。人の検査は `savePageInternal` が行の錠を取ったあと、錠の中の値と比べて
+ * `assertPersonsEligible` を呼びます（そのために `items` を返します）。
  */
 export async function checkedRowProps(
   pageId: string,
   props: Record<string, unknown>,
-): Promise<Record<string, unknown>> {
+): Promise<{ props: Record<string, unknown>; items: WikiItem[] | null }> {
   const items = await rowItemsOf(pageId);
-  if (!items) return props;
+  if (!items) return { props, items: null };
   const checked = validateRowProps(items, props as Record<string, WikiPropValue>);
   await assertOnairTargetsExist(items, checked);
-  const current = await queryOne('SELECT props FROM wiki_pages WHERE id = ?', [pageId]);
-  await assertPersonsEligible(items, checked, (current?.props ?? {}) as Record<string, unknown>);
-  return checked;
+  return { props: checked, items };
 }
 
 /**
@@ -198,6 +201,8 @@ export async function assertPersonsEligible(
   props: Record<string, WikiPropValue>,
   /** いま入っている値（新しく作る行なら `{}`。全部が「新しく入れた値」になる） */
   before: Record<string, unknown>,
+  /** 行の錠を持った取引の中で見るときはその取引 */
+  db: Pick<TxClient, 'queryAll'> = { queryAll },
 ): Promise<void> {
   const personItems = items.filter((i) => i.type === 'person');
   if (personItems.length === 0) return;
@@ -208,7 +213,7 @@ export async function assertPersonsEligible(
     wanted.set(value, item.name);
   }
   if (wanted.size === 0) return;
-  const found = await queryAll(
+  const found = await db.queryAll(
     `SELECT u.id FROM users u WHERE u.id = ANY(?) AND ${WIKI_ELIGIBLE}`,
     [[...wanted.keys()]],
   );

@@ -13,7 +13,7 @@
  *   ・条件2 の差分の起点（`wiki-ai-corrections.service.ts`）
  * の両方になります。付け忘れると、**人が直した差分が永久に取れません**。
  */
-import { execute, queryAll, queryOne, withTransaction, type Row } from '../../../shared/db/connection';
+import { execute, queryAll, queryOne, type Row } from '../../../shared/db/connection';
 import { recordAiOutput } from '../../../shared/services/ai-output.service';
 import { NotFoundError, ValidationError } from '../../qsheet/services/httpErrors';
 import { assertReadablePage, isWikiEditor, readableSpaceIds, type WikiUser } from './wiki-access.service';
@@ -24,7 +24,7 @@ import {
 } from './wiki-ai.constants';
 import { WikiDraftSchema, WIKI_DRAFT_SYSTEM, buildDraftPrompt } from './wiki-ai-prompts';
 import { wikiAdviceFor } from './wiki-ai-digest.service';
-import { markGapWrittenTx, readOpenGapFor, releaseGapClaim } from './wiki-ai-gap.service';
+import { markGapWrittenTx, readOpenGapFor } from './wiki-ai-gap.service';
 import { assertOwnThread, listMessages, markSpawnedPage } from './wiki-ai-thread.service';
 import { savePageInternal, selectPageRow } from './wiki-page.service';
 import { createPage } from './wiki-write.service';
@@ -257,25 +257,23 @@ export async function draftPage(user: WikiUser, input: DraftInput): Promise<Draf
   if (target) {
     pageId = String(target.id);
     /*
-     * ⚠️ **足りないページから起こすときは、書き換える前に質問を押さえます**（#740 の Codex 指摘・P2）。
+     * ⚠️ **足りないページから起こすときは、書き換えと同じ取引で質問を押さえます**（#740 の Codex 指摘・P2 ×2）。
      * 書き換えのあとで結びつけていたころは、AI を待つ間に別の人が質問を片づけると、
-     * 結びつけは断られるのに**下書きは書き換わったまま**でした（新しく作る側は1つの取引なので巻き戻る）。
-     * 押さえる（`open` → `written`）は1文で、取れなければ書き換えずに断ります。
-     * 書き換えが落ちたら押さえを戻します。
+     * 結びつけは断られるのに**下書きは書き換わったまま**でした。次に「先に押さえて、落ちたら戻す」に
+     * したところ、押さえたあと・書き換える前にサーバーが止まると戻す処理が走らず、
+     * 質問だけが `written` で残りました。いまは `inTx` で**1つの取引**にしたので、
+     * 押さえが取れなければ書き換えず、書き換えが落ちれば押さえも巻き戻ります。
      */
     const gapId = input.gapId ? String(input.gapId) : null;
-    if (gapId) await withTransaction((tx) => markGapWrittenTx(tx, gapId, pageId, user));
-    try {
-      await savePageInternal(
-        pageId,
-        { title: pageTitle || undefined, body_md: bodyMd, status: 'draft', note: 'AI が下書きを作成' },
-        user,
-        { skipAiFeedback: true },
-      );
-    } catch (e) {
-      if (gapId) await releaseGapClaim(gapId, pageId).catch(() => {});
-      throw e;
-    }
+    await savePageInternal(
+      pageId,
+      { title: pageTitle || undefined, body_md: bodyMd, status: 'draft', note: 'AI が下書きを作成' },
+      user,
+      {
+        skipAiFeedback: true,
+        inTx: gapId ? (tx) => markGapWrittenTx(tx, gapId, pageId, user) : undefined,
+      },
+    );
   } else {
     /*
      * ⚠️ **質問との結びつけはページを作る取引の中で**（`gap_id`・#735 の再レビュー・Codex 指摘）。
