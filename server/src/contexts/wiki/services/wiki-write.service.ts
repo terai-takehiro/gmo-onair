@@ -211,10 +211,24 @@ export async function createPage(user: WikiUser, input: CreatePageInput): Promis
      * 残って誰からも辿れなくなります（#740 の Codex 指摘・P1）。
      */
     const space = await tx.queryOne(
-      'SELECT id FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR SHARE',
+      'SELECT id, visibility FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR SHARE',
       [spaceId],
     );
     if (!space) throw new NotFoundError('スペースが見つかりません');
+    /*
+     * ⚠️ **錠を取ったあとで、もう一度読めるかを見ます**（#740 の Codex 指摘・P1）。
+     * 最初の `canReadSpace` は錠の外なので、その後に「メンバーだけ」へ切り替わったり
+     * メンバーから外されたりしても、ここで待ったあとそのまま入れられました
+     * （読めないスペースにページを足せる）。スペースの変更は同じ行を `FOR UPDATE` で
+     * 押さえるので、錠を取れた時点の行と、同じ取引で見たメンバーが最新です。
+     */
+    if (user.role !== 'system_admin' && space.visibility !== 'all') {
+      const member = await tx.queryOne(
+        'SELECT 1 AS ok FROM wiki_space_members WHERE space_id = ? AND user_id = ?',
+        [spaceId, user.id],
+      );
+      if (!member) throw new NotFoundError('スペースが見つかりません');
+    }
     const sortOrder = await nextSortOrder(spaceId, parentId);
     await tx.execute(
       `INSERT INTO wiki_pages
