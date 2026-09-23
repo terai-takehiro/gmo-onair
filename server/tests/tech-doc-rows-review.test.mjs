@@ -234,7 +234,7 @@ test('createPanel: 日本語だけの名前の盤を2枚足しても、それぞ
   assert.equal(new Set(inserted.map((j) => j.id)).size, 128, '128 個の id がすべて別');
 });
 
-// 4) 技術人員の会社は案件管理の取引先（companies）そのもの（tech-docs.md §13-5・migration 306）。
+// 4) 技術人員の会社は案件管理の取引先（companies）そのもの（tech-docs.md §13-5・migration 307）。
 //    techops からの「会社を追加」は、同じ名前の取引先があればそれを返し、無ければ
 //    取引先の登録の入口（createVendorRecord）を同じトランザクションで通して仕入先として作る。
 test('createCompany: 同じ名前の取引先があれば作らずにそれを返す', async () => {

@@ -3,7 +3,7 @@
 **最終確認: 2026-09-23。** 一次情報は `scripts/tech-persons-import.mjs`・
 `docs/design/v4/tech-docs.md` §9-2（決めごとの正）・§13-5（会社は取引先）・
 `server/src/shared/db/migrations/305_tech_docs.sql`（`qsheet_tech_persons`）・
-`306_tech_persons_companies.sql`（会社を案件管理の取引先 `companies` に寄せた）。
+`307_tech_persons_companies.sql`（会社を案件管理の取引先 `companies` に寄せた）。
 
 ## これは何か
 

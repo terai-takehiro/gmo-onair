@@ -105,7 +105,7 @@
       "y": 0,
       "w": 640,
       "maxH": 880,
-      "text": "データの持ち方（設計書 §5）\n\nqsheet_tech_docs … 資料（doc_no TD-・project_id／program_id・title・status draft|fixed・rev・編集ロック＋楽観ロック。Yjs は使わない）\nqsheet_tech_patch_rows … 映像パッチの行（group_label〈系統〉・送り 機材名／パッチ番号／名前の写し・受け 同・label・signal・note・sort_order）\nqsheet_tech_staff_rows … 技術スタッフの行（work_date・role・person_id（任意）・person_name の写し・company_id（任意）・company_name の写し・note・sort_order）\n\nqsheet_patch_panels … 盤（VJP100・48|32・jack|trunk・場所・型番）\nqsheet_patch_jacks … パッチ番号（panel_id・position・row A|B・device_name・label・signal・area・note）\ncompanies（取引先。案件管理の持ち物） … 会社。techops からは id・name・short_name・人数だけを読む。同名が無ければ仕入先として追加する（§13-5・migration 306）\nqsheet_tech_persons … 人（company_id は companies への参照・name・kana・main_roles・active・note）\n\n名前は写して持つ（一覧を消しても資料が空にならない）。migration 305・306（会社は companies に統合）。権限は qsheet reader／editor／manager（管理2画面は manager）"
+      "text": "データの持ち方（設計書 §5）\n\nqsheet_tech_docs … 資料（doc_no TD-・project_id／program_id・title・status draft|fixed・rev・編集ロック＋楽観ロック。Yjs は使わない）\nqsheet_tech_patch_rows … 映像パッチの行（group_label〈系統〉・送り 機材名／パッチ番号／名前の写し・受け 同・label・signal・note・sort_order）\nqsheet_tech_staff_rows … 技術スタッフの行（work_date・role・person_id（任意）・person_name の写し・company_id（任意）・company_name の写し・note・sort_order）\n\nqsheet_patch_panels … 盤（VJP100・48|32・jack|trunk・場所・型番）\nqsheet_patch_jacks … パッチ番号（panel_id・position・row A|B・device_name・label・signal・area・note）\ncompanies（取引先。案件管理の持ち物） … 会社。techops からは id・name・short_name・人数だけを読む。同名が無ければ仕入先として追加する（§13-5・migration 307）\nqsheet_tech_persons … 人（company_id は companies への参照・name・kana・main_roles・active・note）\n\n名前は写して持つ（一覧を消しても資料が空にならない）。migration 305・307（会社は companies に統合）。権限は qsheet reader／editor／manager（管理2画面は manager）"
     },
     "s-main": {
       "x": 0,
