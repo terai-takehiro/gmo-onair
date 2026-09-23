@@ -32,7 +32,9 @@ import { NotFoundError, ValidationError } from '../../qsheet/services/httpErrors
 import { jstDate } from '../../../shared/utils/jst';
 import type { NotifyInput } from '../../platform/services/notification.service';
 import { template as notificationTemplate, fill } from '../../platform/services/notification.service';
-import { assertReadablePage, readableSpaceIds, type WikiUser } from './wiki-access.service';
+import {
+  assertReadablePage, canReadSpace, readableSpaceIds, wikiUserById, type WikiUser,
+} from './wiki-access.service';
 import { selectPageRow } from './wiki-page.service';
 import { pathLabels } from './wiki-path.service';
 
@@ -357,6 +359,15 @@ export async function runWikiReviewNoticeIfDue(today: string): Promise<NotifyInp
     const noOwner = Number(row.no_owner ?? 0);
     const total = overdue + soon + noOwner;
     if (total === 0) continue;
+
+    /*
+     * ⚠️ **担当が「いまそのスペースを読める」ときだけ送ります**（#735 の再レビュー・Codex 指摘）。
+     * 担当は閲覧の許可ではない（`wiki-access.service.ts`）ので、「メンバーだけ」のスペースの
+     * 担当がメンバーから外れた・Wiki の権限を外されたあとも id は残り、そのまま送ると
+     * **開けないスペースの名前と件数**がベルに届きます。コメントの通知と同じ絞り方です。
+     */
+    const recipient = await wikiUserById(String(row.space_owner_user_id));
+    if (!recipient || !(await canReadSpace(recipient, String(row.space_id)))) continue;
 
     const vars = {
       'スペース名': String(row.space_name ?? ''),

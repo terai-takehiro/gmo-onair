@@ -21,12 +21,14 @@ export const SPACE_ADMIN_URL = {
   one: (id: string) => `/wiki/manage/spaces/${id}`,
   members: (id: string) => `/wiki/manage/spaces/${id}/members`,
   member: (id: string, userId: string) => `/wiki/manage/spaces/${id}/members/${userId}`,
+  users: '/wiki/manage/users',
 } as const;
 
 export const spaceAdminKeys = {
   all: ['wiki', 'manage', 'spaces'] as const,
   list: () => ['wiki', 'manage', 'spaces', 'list'] as const,
   members: (id: string) => ['wiki', 'manage', 'spaces', 'members', id] as const,
+  users: () => ['wiki', 'manage', 'users'] as const,
 };
 
 /** 管理の一覧の1行（ふつうの一覧の列 ＋ 下書きを含むページ数） */
@@ -69,6 +71,22 @@ export function useSpaceMembers(spaceId: string | null, enabled: boolean) {
     enabled: enabled && !!spaceId,
     queryFn: async ({ signal }) =>
       unwrap<SpaceMember[]>(await api.get(SPACE_ADMIN_URL.members(spaceId!), { signal })),
+  });
+}
+
+/**
+ * 担当・メンバーに選べる人（**Wiki を使える人だけ・全員**）。
+ *
+ * ⚠️ 全体の利用者一覧（`useOnairUsers`）は使いません。あちらは1回で100人までで、
+ * しかも Wiki の権限が無い人も並ぶため、選べない人を選べて・選べる人が出ない、の
+ * 両方が起きていました（#740 の Codex 指摘・P2 ×2）。
+ */
+export function useAssignableUsers(enabled: boolean) {
+  return useQuery({
+    queryKey: spaceAdminKeys.users(),
+    enabled,
+    queryFn: async ({ signal }) => unwrap<{ id: string; name: string }[]>(await api.get(SPACE_ADMIN_URL.users, { signal })),
+    staleTime: 5 * 60_000,
   });
 }
 

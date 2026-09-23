@@ -8,6 +8,7 @@
  * - `GET    /wiki/manage/spaces/:id/members`           メンバーの一覧
  * - `PUT    /wiki/manage/spaces/:id/members/:userId`   メンバーに加える
  * - `DELETE /wiki/manage/spaces/:id/members/:userId`   メンバーから外す
+ * - `GET    /wiki/manage/users`                        担当・メンバーに選べる人（Wiki を使える人だけ・上限なし）
  *
  * ⚠️ 道は `/wiki/spaces/...` の下に置きません。`spaces.routes.ts` の `/spaces/:key` が
  * `manage` を `key` として食べてしまうためです。
@@ -18,7 +19,7 @@ import { Router } from 'express';
 import { requireAuth, requirePermission } from '../../../shared/middleware/auth';
 import { ValidationError } from '../../qsheet/services/httpErrors';
 import {
-  addSpaceMember, createSpace, deleteSpace, listSpaceMembers, listSpacesForAdmin,
+  addSpaceMember, createSpace, deleteSpace, listAssignableUsers, listSpaceMembers, listSpacesForAdmin,
   removeSpaceMember, updateSpace, type UpdateSpaceInput,
 } from '../services/wiki-space-admin.service';
 import { wrap, p1 } from './wrap';
@@ -33,6 +34,10 @@ function body(req: { body?: unknown }): Record<string, unknown> {
 
 router.get('/manage/spaces', ...canManage, wrap(async (req, res) => {
   res.json({ success: true, data: await listSpacesForAdmin(req.user!) });
+}));
+
+router.get('/manage/users', ...canManage, wrap(async (_req, res) => {
+  res.json({ success: true, data: await listAssignableUsers() });
 }));
 
 router.post('/manage/spaces', ...canManage, wrap(async (req, res) => {

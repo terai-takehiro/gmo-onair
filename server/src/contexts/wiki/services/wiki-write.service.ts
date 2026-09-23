@@ -202,6 +202,17 @@ export async function createPage(user: WikiUser, input: CreatePageInput): Promis
   const pageId = newWikiPageId();
 
   await withTransaction(async (tx) => {
+    /*
+     * ⚠️ **入れる前に、スペースの行を `FOR SHARE` で押さえます。** スペースの削除
+     * （`wiki-space-admin.service.ts` の `deleteSpace`）が同じ行を `FOR UPDATE` で押さえて
+     * 「ページが 0 件なら消す」ので、ここで押さえないと、消えたスペースの下にページが
+     * 残って誰からも辿れなくなります（#740 の Codex 指摘・P1）。
+     */
+    const space = await tx.queryOne(
+      'SELECT id FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR SHARE',
+      [spaceId],
+    );
+    if (!space) throw new NotFoundError('スペースが見つかりません');
     const sortOrder = await nextSortOrder(spaceId, parentId);
     await tx.execute(
       `INSERT INTO wiki_pages

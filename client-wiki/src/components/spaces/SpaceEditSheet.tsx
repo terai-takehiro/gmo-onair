@@ -24,12 +24,12 @@ import { confirmAction } from '@gmo-onair/shared/src/client/ui/confirm';
 import { notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import type { WikiSpaceVisibility } from '@gmo-onair/shared/src/wiki/types';
 import BufferedInput from '@/components/editor/BufferedInput';
-import { useOnairUsers } from '@/components/page/pageOpsApi';
 import SpaceMembers from './SpaceMembers';
 import {
   createSpace,
   deleteSpace,
   updateSpace,
+  useAssignableUsers,
   useSpaceAdminRefresh,
   VISIBILITY_LABEL,
   VISIBILITY_NOTE,
@@ -53,7 +53,7 @@ export interface SpaceEditSheetProps {
 
 export default function SpaceEditSheet({ open, onOpenChange, space }: SpaceEditSheetProps) {
   const refresh = useSpaceAdminRefresh();
-  const usersQ = useOnairUsers(open);
+  const usersQ = useAssignableUsers(open);
   const [visibility, setVisibility] = useState<WikiSpaceVisibility>('all');
   const [owner, setOwner] = useState('');
 

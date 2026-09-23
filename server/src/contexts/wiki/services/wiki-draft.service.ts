@@ -13,10 +13,10 @@
  *   ・条件2 の差分の起点（`wiki-ai-corrections.service.ts`）
  * の両方になります。付け忘れると、**人が直した差分が永久に取れません**。
  */
-import { execute, queryAll, queryOne, type Row } from '../../../shared/db/connection';
+import { execute, queryAll, queryOne, withTransaction, type Row } from '../../../shared/db/connection';
 import { recordAiOutput } from '../../../shared/services/ai-output.service';
 import { NotFoundError, ValidationError } from '../../qsheet/services/httpErrors';
-import { assertReadablePage, isWikiEditor, readableSpaceIds, type WikiUser } from './wiki-access.service';
+import { assertReadablePage, isWikiEditor, isWikiManager, readableSpaceIds, type WikiUser } from './wiki-access.service';
 import { callWikiAi, wikiTierFor } from './wiki-ai-llm';
 import {
   WIKI_DRAFT_KIND, WIKI_DRAFT_PROMPT_VERSION, WIKI_MATERIAL_CHARS_PER_PAGE,
@@ -24,7 +24,7 @@ import {
 } from './wiki-ai.constants';
 import { WikiDraftSchema, WIKI_DRAFT_SYSTEM, buildDraftPrompt } from './wiki-ai-prompts';
 import { wikiAdviceFor } from './wiki-ai-digest.service';
-import { markGapWritten } from './wiki-ai-gap.service';
+import { assertGapOpen, markGapWrittenTx } from './wiki-ai-gap.service';
 import { assertOwnThread, listMessages, markSpawnedPage } from './wiki-ai-thread.service';
 import { savePageInternal, selectPageRow } from './wiki-page.service';
 import { createPage } from './wiki-write.service';
@@ -72,7 +72,11 @@ interface DraftMaterials {
   };
 }
 
-async function gatherDraftMaterials(user: WikiUser, input: DraftInput): Promise<DraftMaterials> {
+async function gatherDraftMaterials(
+  user: WikiUser,
+  input: DraftInput,
+  gapQuestion: string | null,
+): Promise<DraftMaterials> {
   const parts: string[] = [];
   const pages: DraftMaterials['refs']['pages'] = [];
   let threadMessages = 0;
@@ -84,10 +88,28 @@ async function gatherDraftMaterials(user: WikiUser, input: DraftInput): Promise<
     );
   }
   if (notes) parts.push(`### 人が書いたメモ\n${notes}`);
+  if (gapQuestion) parts.push(`### AI が答えられなかった質問（足りないページ）\n${gapQuestion}`);
 
-  if (input.threadId) {
-    // **本人の会話だけ**（他人のスレッドは存在ごと見えない・§6-⑤）
-    await assertOwnThread(user, String(input.threadId));
+  /*
+   * **本人の会話だけ**（他人のスレッドは存在ごと見えない・§6-⑤）。
+   *
+   * ⚠️ **足りないページから起こすときは、他人の会話を黙って材料から外します**
+   * （#735 の再レビュー・Codex 指摘・P1）。足りないページの質問は**聞いた人の会話**を
+   * 指しているので、見直す manager が「AI で下書きを作成」を押すとほぼ必ず他人の会話になり、
+   * `assertOwnThread` が 404 を返して下書きが1本も作れませんでした。会話は読みに行かず、
+   * manager に見えている**質問の文**（上の `gapQuestion`）を材料にします。自分で聞いた
+   * 質問なら、今までどおり会話も材料に入れます。
+   */
+  const ownThread = input.threadId
+    ? await assertOwnThread(user, String(input.threadId)).then(
+      () => true,
+      (e: unknown) => {
+        if (gapQuestion !== null && e instanceof NotFoundError) return false;
+        throw e;
+      },
+    )
+    : false;
+  if (ownThread) {
     const messages = await listMessages(String(input.threadId));
     threadMessages = messages.length;
     if (messages.length > 0) {
@@ -127,7 +149,7 @@ async function gatherDraftMaterials(user: WikiUser, input: DraftInput): Promise<
   return {
     block,
     refs: {
-      thread_id: input.threadId ? String(input.threadId) : null,
+      thread_id: ownThread ? String(input.threadId) : null,
       thread_message_count: threadMessages,
       pages,
       notes,   // **人が打った原文は切り詰めずに残す**（どこを読み違えたかを後で確かめる）
@@ -166,7 +188,20 @@ export async function draftPage(user: WikiUser, input: DraftInput): Promise<Draf
   const spaceId = target ? String(target.space_id) : String(input.spaceId ?? '');
   if (!spaceId) throw new ValidationError('スペースを選んでください。');
 
-  const materials = await gatherDraftMaterials(user, input);
+  /*
+   * 足りないページから起こすとき: **AI を呼ぶ前に**、manager か・質問がまだ `open` かを見ます。
+   * 呼んでから断ると費用だけかかり、しかも2人目の下書きを作る直前まで進んでしまいます。
+   * 足りないページは manager だけが見られるもの（`listGaps`）なので、それ以外には存在ごと隠します。
+   */
+  let gapQuestion: string | null = null;
+  if (input.gapId) {
+    if (!isWikiManager(user)) throw new NotFoundError('足りないページの質問が見つかりません');
+    await assertGapOpen(String(input.gapId));
+    const gap = await queryOne('SELECT question FROM wiki_ai_gaps WHERE id = ?', [String(input.gapId)]);
+    gapQuestion = String(gap?.question ?? '').trim() || null;
+  }
+
+  const materials = await gatherDraftMaterials(user, input, gapQuestion);
   if (!materials.block.trim()) {
     throw new ValidationError('材料がありません。会話・メモ・参考にするページのどれかを指定してください。');
   }
@@ -211,6 +246,12 @@ export async function draftPage(user: WikiUser, input: DraftInput): Promise<Draf
       { skipAiFeedback: true },
     );
   } else {
+    /*
+     * ⚠️ **質問との結びつけはページを作る取引の中で**（`gap_id`・#735 の再レビュー・Codex 指摘）。
+     * 作ったあとに別で結びつけ、失敗を握りつぶしていたころは「下書きはできたのに質問は
+     * `open` のまま」になり、押し直した人が費用のかかる下書きをもう1本作っていました。
+     * 結びつけられなければページごと巻き戻り、画面には理由が出ます。
+     */
     const created = await createPage(user, {
       space_id: spaceId,
       parent_id: input.parentId ?? null,
@@ -218,6 +259,7 @@ export async function draftPage(user: WikiUser, input: DraftInput): Promise<Draf
       body_md: bodyMd,
       status: 'draft',
       note: 'AI が下書きを作成',
+      gap_id: input.gapId ?? null,
     });
     pageId = String(created.id);
   }
@@ -253,7 +295,10 @@ export async function draftPage(user: WikiUser, input: DraftInput): Promise<Draf
   }
   // 採用の印（条件3）。会話から起こした／足りないページから起こした
   if (input.messageId) await markSpawnedPage(String(input.messageId), pageId);
-  if (input.gapId) await markGapWritten(String(input.gapId), pageId, user.id);
+  // 既にある下書きに書いたとき（新しく作ったときは上の `createPage` が結びつけ済み）
+  if (target && input.gapId) {
+    await withTransaction((tx) => markGapWrittenTx(tx, String(input.gapId), pageId, user.id));
+  }
 
   return { page: await selectPageRow(pageId), open_questions: openQuestions, ai_output_id: outputId };
 }

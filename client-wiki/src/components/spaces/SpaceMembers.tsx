@@ -19,11 +19,11 @@ import { Button } from '@gmo-onair/shared/src/client/ui/button';
 import { Label } from '@gmo-onair/shared/src/client/ui/label';
 import { notifySuccess } from '@gmo-onair/shared/src/client/notify';
 import { useAuth } from '@/hooks/useAuth';
-import { useOnairUsers } from '@/components/page/pageOpsApi';
 import {
   addSpaceMember,
   removeSpaceMember,
   spaceAdminKeys,
+  useAssignableUsers,
   useSpaceAdminRefresh,
   useSpaceMembers,
   type AdminSpace,
@@ -38,7 +38,7 @@ export default function SpaceMembers({ space }: { space: AdminSpace }) {
   const { currentUser } = useAuth();
   const isAdmin = currentUser?.role === 'system_admin';
   const membersQ = useSpaceMembers(space.id, true);
-  const usersQ = useOnairUsers(true);
+  const usersQ = useAssignableUsers(true);
   const [pick, setPick] = useState('');
 
   const members = membersQ.data ?? [];

@@ -98,18 +98,40 @@ function cleanVisibility(v: unknown): WikiSpaceVisibility {
 }
 
 /**
- * 在籍中の利用者か。空は null（「担当なし」など）。
+ * Wiki を使える在籍中の利用者だけを通す条件（`u` は users）。
+ *
+ * ⚠️ **区画 `wiki` の権限（reader 以上）か system_admin の人だけ**です。在籍中かだけを
+ * 見ていたころは、Wiki の権限が無い人も担当・メンバーに選べてしまい、見直しの通知から
+ * リンクを開くと全部 403 になっていました（#740 の Codex 指摘・P2）。
+ * 候補の一覧（`listAssignableUsers`）と、選んだ値の検査（`cleanActiveUser`）は同じ条件を使います。
+ */
+const WIKI_ELIGIBLE = `u.deleted_at IS NULL AND u.status = 'active'
+  AND (u.role = 'system_admin'
+       OR EXISTS (SELECT 1 FROM user_permissions up WHERE up.user_id = u.id AND up.module = 'wiki'))`;
+
+/**
+ * 担当・メンバーに選べる人の一覧（名前の順・**上限なし**）。
+ *
+ * ⚠️ 画面は全体の `/users` を使いません。あちらは1回で100人までしか返さず、
+ * 101人目以降が選べなかったためです（#740 の Codex 指摘・P2）。選べる人を
+ * Wiki を使える人に絞るので、件数も会社の人数を超えません。
+ */
+export async function listAssignableUsers(): Promise<Row[]> {
+  return queryAll(`SELECT u.id, u.name FROM users u WHERE ${WIKI_ELIGIBLE} ORDER BY u.name, u.id`);
+}
+
+/**
+ * Wiki を使える在籍中の利用者か（`WIKI_ELIGIBLE`）。空は null（「担当なし」など）。
  * `what` は断るときの文言に入れる（「担当に選んだ人」「追加する人」）— 担当の文言を
  * メンバーの追加で使い回すと、何を断られたのかが読めなくなる。
  */
 async function cleanActiveUser(v: unknown, what: string): Promise<string | null> {
   if (v === null || v === undefined || v === '') return null;
   const id = String(v);
-  const row = await queryOne(
-    "SELECT id FROM users WHERE id = ? AND deleted_at IS NULL AND status = 'active'",
-    [id],
-  );
-  if (!row) throw new ValidationError(`${what}が見つかりません。選び直してください。`);
+  const row = await queryOne(`SELECT u.id FROM users u WHERE u.id = ? AND ${WIKI_ELIGIBLE}`, [id]);
+  if (!row) {
+    throw new ValidationError(`${what}が見つからないか、Wiki を使える権限がありません。選び直してください。`);
+  }
   return id;
 }
 
@@ -205,7 +227,14 @@ export async function updateSpace(user: WikiUser, spaceId: string, input: Update
   const name = has('name') ? cleanName(input.name) : String(current.name);
   const description = has('description') ? cleanDescription(input.description) : (current.description as string | null);
   const visibility = has('visibility') ? cleanVisibility(input.visibility) : (current.visibility as WikiSpaceVisibility);
-  const owner = has('owner_user_id') ? await cleanOwner(input.owner_user_id) : (current.owner_user_id as string | null);
+  /*
+   * ⚠️ **担当が変わらないときは検査しません。** 画面は保存のたびに担当も送るので、
+   * 担当があとで Wiki の権限を外された・退職したスペースでは、名前を直すだけの保存まで
+   * 断られてしまいます。検査するのは、新しく選び直したときだけです。
+   */
+  const currentOwner = (current.owner_user_id as string | null) ?? null;
+  const ownerChanged = has('owner_user_id') && String(input.owner_user_id ?? '') !== String(currentOwner ?? '');
+  const owner = ownerChanged ? await cleanOwner(input.owner_user_id) : currentOwner;
   let sortOrder = Number(current.sort_order ?? 0);
   if (has('sort_order')) {
     const n = Number(input.sort_order);
@@ -236,14 +265,34 @@ export async function updateSpace(user: WikiUser, spaceId: string, input: Update
  * 先にページを別のスペースへ移すか削除してもらいます。
  */
 export async function deleteSpace(user: WikiUser, spaceId: string): Promise<Row> {
-  const current = await assertManageableSpace(user, spaceId);
-  const pages = Number(current.all_page_count ?? 0);
-  if (pages > 0) {
-    throw new ValidationError(
-      `このスペースにはページが${pages}件あります。ページを別のスペースへ移すか削除してから、もう一度お試しください。`,
+  await assertManageableSpace(user, spaceId);
+  /*
+   * ⚠️ **数える・消すは、スペースの行を `FOR UPDATE` で押さえた取引の中で行います。**
+   * 押さえずに「数えて 0 なら消す」だと、その間に別の人が作ったページが
+   * **消えたスペースの下に残り**、一覧・検索・書き出しのどこからも辿れなくなりました
+   * （#740 の Codex 指摘・P1）。ページを作る側（`wiki-write.service.ts` の `createPage`）は
+   * 同じ行を `FOR SHARE` で押さえるので、どちらかが必ず待ちます:
+   *   - 削除が先 → 作る側は待ったあと「スペースが見つかりません」
+   *   - 作るのが先 → 削除は待ったあと、そのページを数えて断る
+   */
+  await withTransaction(async (tx) => {
+    const locked = await tx.queryOne(
+      'SELECT id FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
+      [spaceId],
     );
-  }
-  await execute('UPDATE wiki_spaces SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?', [spaceId]);
+    if (!locked) throw new NotFoundError('スペースが見つかりません');
+    const counted = await tx.queryOne(
+      'SELECT COUNT(*)::int AS n FROM wiki_pages WHERE space_id = ? AND deleted_at IS NULL',
+      [spaceId],
+    );
+    const pages = Number(counted?.n ?? 0);
+    if (pages > 0) {
+      throw new ValidationError(
+        `このスペースにはページが${pages}件あります。ページを別のスペースへ移すか削除してから、もう一度お試しください。`,
+      );
+    }
+    await tx.execute('UPDATE wiki_spaces SET deleted_at = NOW(), updated_at = NOW() WHERE id = ?', [spaceId]);
+  });
   return { id: spaceId, deleted: true };
 }
 

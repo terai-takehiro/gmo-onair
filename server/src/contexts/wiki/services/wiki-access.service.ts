@@ -115,7 +115,9 @@ export async function assertReadablePage(user: WikiUser, pageId: string): Promis
  * **入っていない棚の担当に据えられた**ときに、そのまま送ると題と本文の一部が
  * 届いてしまいます（押しても 404 になるページの中身が、ベルの中だけで読める）。
  *
- * 退職・停止した人（`deleted_at` / `status`）もここで落ちます。
+ * 退職・停止した人（`deleted_at` / `status`）と、**区画 `wiki` の権限が無い人**もここで落ちます
+ * （権限が無いと、通知のリンクを開いても全部 403 になるため。#735 の再レビューで、
+ * 全員が読めるスペースでは `canReadSpace` だけでは落ちないことが分かった）。
  * 返り値が `null` なら**送らない**でください。
  */
 export async function wikiUserById(userId: string): Promise<WikiUser | null> {
@@ -132,6 +134,7 @@ export async function wikiUserById(userId: string): Promise<WikiUser | null> {
     );
     user.permissions = {};
     for (const p of perms) user.permissions[String(p.module)] = String(p.access_level);
+    if (!meetsPermissionLevel(user.role, user.permissions.wiki, 'reader')) return null;
   }
   return user;
 }

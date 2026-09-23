@@ -6,8 +6,14 @@
  * **本文だけが入って画像が全部壊れます**（しかも本文は合っているので気づかれない）。
  * ここで道を ONAiR の画像の URL に差し替えます。
  *
- * ⚠️ **`http://` `https://` と `/` で始まる道は触りません。** 外のサイトの画像と、
- * ONAiR が既に配っている画像（`/api/v1/internal/wiki/files/:id`）はそのままが正しい形です。
+ * ⚠️ **`http://` `https://` と `/` で始まる道は、原則として触りません。** 外のサイトの画像は
+ * そのままが正しい形です。
+ *
+ * ⚠️ **例外は ONAiR の画像の URL（`…/wiki/files/:id`）で、zip の中に同じ id の
+ * `files/<id>.<拡張子>` があるときです。** ONAiR の書き出し（`wiki-export.service.ts`）は本文を
+ * 書き換えず、画像の中身を `files/` に同梱します。ここで同梱の画像に当てないと、
+ * 別の環境に戻したときは画像が全部壊れ、同じ環境でも**元のページの画像（元の閲覧範囲）**を
+ * 指したままになります（#730 の Codex 指摘・P1）。同梱が無ければ今までどおりそのまま残します。
  *
  * ここは**純関数だけ**です（zip も DB も触りません）。
  */
@@ -15,6 +21,19 @@
 /** `![説明](道)` と `![[道]]`（Obsidian）の両方 */
 const MD_IMAGE = /!\[([^\]]*)\]\(\s*<?([^)>\s]+)>?(?:\s+"[^"]*")?\s*\)/g;
 const WIKI_IMAGE = /!\[\[([^\]|]+)(?:\|[^\]]*)?\]\]/g;
+/** ONAiR の画像の URL（`/api/v1/internal/wiki/files/:id`。前置きは変わりうるので末尾で拾う） */
+const ONAIR_FILE_URL = /^\/(?:[^\s?#]*\/)?wiki\/files\/([A-Za-z0-9_-]+)(?:[?#].*)?$/;
+
+/** ONAiR の画像の URL なら、同梱の `<id>.<拡張子>` を名前で探す（無ければ null） */
+function resolveOnairFile(target: string, byBase?: Map<string, string>): string | null {
+  const m = ONAIR_FILE_URL.exec(target.trim());
+  if (!m || !byBase) return null;
+  const prefix = `${m[1]}.`;
+  for (const [base, p] of byBase) {
+    if (base.startsWith(prefix) && !base.slice(prefix.length).includes('.')) return p;
+  }
+  return null;
+}
 
 /** zip の中の道に直す。外の URL と絶対の道は `''`（触らない印） */
 export function normalizeAssetPath(dir: string, target: string): string {
@@ -66,6 +85,8 @@ export function resolveAssetPath(
   has: (p: string) => boolean,
   byBase?: Map<string, string>,
 ): string | null {
+  const bundled = resolveOnairFile(target, byBase);
+  if (bundled) return bundled;
   const direct = normalizeAssetPath(dir, target);
   if (direct && has(direct)) return direct;
   const fromRoot = normalizeAssetPath('', target);

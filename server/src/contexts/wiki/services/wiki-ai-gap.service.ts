@@ -14,7 +14,7 @@
  * `wiki-markdown.ts` に一字一句そろえた写しを持っています。
  */
 import { v4 as uuid } from 'uuid';
-import { queryAll, queryOne, execute, type TxClient } from '../../../shared/db/connection';
+import { queryAll, queryOne, type TxClient } from '../../../shared/db/connection';
 import { NotFoundError, ValidationError } from '../../qsheet/services/httpErrors';
 import { normalizeQuestion } from '../wiki-markdown';
 import { isWikiManager, readableSpaceIds, type WikiUser } from './wiki-access.service';
@@ -152,17 +152,28 @@ export async function resolveGap(
   return out ?? {};
 }
 
-/** ページを作った側から結びつける（「ページにする」を押したとき） */
-export async function markGapWritten(gapId: string, pageId: string, userId: string): Promise<void> {
-  await execute(MARK_GAP_WRITTEN_SQL, [pageId, userId, gapId]).catch((e: unknown) => {
-    console.warn('[wiki-ai] 足りないページの結びつけに失敗:', (e as Error).message);
-  });
-}
-
+/**
+ * ⚠️ **`status = 'open'` の質問だけに当てます**（#735 の再レビュー・Codex 指摘）。
+ * id だけで当てていたころは、同じ質問で2人が同時に「ページを作成」を押すと、
+ * 後の取引が前の取引の確定を待ってから**上書きして**両方のページが残りました
+ * （結びつかない下書きが1本余る）。`open` に限れば後の取引は当たらずに巻き戻ります。
+ */
 const MARK_GAP_WRITTEN_SQL = `
   UPDATE wiki_ai_gaps
      SET status = 'written', page_id = ?, resolved_by = ?, resolved_at = NOW()
-   WHERE id = ?`;
+   WHERE id = ? AND status = 'open'`;
+
+/**
+ * 結びつける前の確認（AI の下書きは AI を呼ぶ**前に**見る。呼んでから断ると費用だけかかる）。
+ * 無い → 404／もう片づいている → 400（押し直しても同じなので、読み込み直しを促す）。
+ */
+export async function assertGapOpen(gapId: string, db: Pick<TxClient, 'queryOne'> = { queryOne }): Promise<void> {
+  const row = await db.queryOne('SELECT status FROM wiki_ai_gaps WHERE id = ?', [gapId]);
+  if (!row) throw new NotFoundError('足りないページの質問が見つかりません');
+  if (row.status !== 'open') {
+    throw new ValidationError('この質問は、ほかの人がもう片づけました。一覧を読み込み直してください。');
+  }
+}
 
 /**
  * 同じ結びつけを、**ページを作る取引の中で**行う（Codex レビュー指摘・#735）。
@@ -181,5 +192,6 @@ export async function markGapWrittenTx(
   // ⚠️ `RETURNING` で**当たったか**を見る。当たらない（消えた・id が違う）ときに
   //    黙って通すと、ページだけできて質問は結びつかないまま＝直したい状態に戻る
   const row = await tx.queryOne(`${MARK_GAP_WRITTEN_SQL} RETURNING id`, [pageId, userId, gapId]);
-  if (!row) throw new NotFoundError('足りないページの質問が見つかりません');
+  // 当たらなかった理由（無い／もう片づいている）で文言を分ける。どちらでも取引ごと巻き戻る
+  if (!row) await assertGapOpen(gapId, tx);
 }
