@@ -27,7 +27,7 @@ import {
 } from './wiki-access.service';
 import { assertPageEditable } from './wiki-lock.service';
 import { newWikiPageId, selectPageRow, rebuildPageLinks } from './wiki-page.service';
-import { parentDatabaseItems } from './wiki-row-props';
+import { assertPersonsEligible, parentDatabaseItems } from './wiki-row-props';
 import { recordWikiDraftReject } from './wiki-ai-corrections.service';
 import { markGapWrittenTx, readOpenGapFor } from './wiki-ai-gap.service';
 import { sanitizeProps } from '../wiki-props';
@@ -228,6 +228,16 @@ export async function createPage(user: WikiUser, input: CreatePageInput): Promis
         [spaceId, user.id],
       );
       if (!member) throw new NotFoundError('スペースが見つかりません');
+    }
+    /*
+     * ⚠️ **呼ぶ側が渡した行の値の「人」は、作る取引の中で確かめます**（#740 の Codex 指摘・P2 ×2）。
+     * 行の作成（`createRow`）と MCP の `create_wiki_page` が、それぞれ別の場所で確かめていたころは、
+     * MCP が確かめ忘れて停止中・存在しない人の id が入り、行の作成は「作る → 値を保存」の
+     * 2つの取引の間に権限が外れると、断りながら空の行を残しました。ここに1つにまとめ、
+     * 行と値を1つの取引で入れます。テンプレートから写した値は見ません（上の「黙って落とす」と同じ理由）。
+     */
+    if (parentItems && input.props !== undefined) {
+      await assertPersonsEligible(parentItems, props as Record<string, WikiPropValue>, {}, tx);
     }
     const sortOrder = await nextSortOrder(spaceId, parentId);
     await tx.execute(

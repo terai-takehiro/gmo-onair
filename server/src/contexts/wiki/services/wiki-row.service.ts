@@ -22,8 +22,7 @@ import {
   loadDefinition,
 } from './wiki-database.service';
 import type { WikiView } from './wiki-database-schema';
-import { assertOnairTargetsExist, assertPersonsEligible, databaseItems, validateRowProps } from './wiki-row-props';
-import { savePageInternal } from './wiki-page.service';
+import { assertOnairTargetsExist, databaseItems, validateRowProps } from './wiki-row-props';
 import { createPage } from './wiki-write.service';
 import { applyView } from './wiki-view-apply';
 
@@ -152,9 +151,8 @@ export interface CreateRowInput {
  * 行を1本足す（`POST /wiki/databases/:pageId/rows`）。
  *
  * **題を打つだけで作れます**（§6-⑩）。作られるのは子ページなので、ツリーにも出ます。
- * `props` を添えると、作ったあとに続けて値を入れます（版が2つになりますが、
- * 「作った」と「値を入れた」が履歴で分かれるのはむしろ読みやすい）。
- * 値が項目の型に合わないときは**1行も作らずに止めます**（下の注意書き）。
+ * `props` を添えると、**行と値を1つの取引で**入れます（`createPage` に渡す）。
+ * 値が項目の型に合わないとき・選べない人のときは**1行も作らずに止めます**（下の注意書き）。
  */
 export async function createRow(
   user: WikiUser,
@@ -175,8 +173,6 @@ export async function createRow(
     const items = await databaseItems(pageId);
     props = validateRowProps(items, input.props as Record<string, WikiPropValue>);
     await assertOnairTargetsExist(items, props);
-    // 人の項目も**作る前に**（#740 の Codex 指摘・P2。あとの保存で断ると空の行が残る）
-    await assertPersonsEligible(items, props, {});
   }
 
   const created = await createPage(user, {
@@ -184,10 +180,12 @@ export async function createRow(
     parent_id: pageId,
     title: title || undefined,
     status: 'published',
+    /*
+     * ⚠️ **作ったあとで別に保存しない**（#740 の Codex 指摘・P2）。「作る」と「値を保存」を
+     * 別の取引にしていたころは、間で人の権限が外れると、断りながら空の行が残りました。
+     * 人の項目は `createPage` が同じ取引の中で確かめます。
+     */
+    ...(props ? { props, note: '行を追加' } : {}),
   });
-
-  if (props && Object.keys(props).length > 0) {
-    return savePageInternal(String(created.id), { props, note: '行の値を入れた' }, user);
-  }
   return created;
 }
