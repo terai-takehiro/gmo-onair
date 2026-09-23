@@ -2566,6 +2566,28 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#737**（`fix(techops): 技術資料の後続の直し（レビュー指摘・会社を取引先に・パッチ盤の中身・MCP の一覧・ロックの不具合・文言検査）`・
+  2026-09-23 マージ）—— #731 の後続。#731 のマージ直前に付いた指摘3件の直し、技術人員の会社を取引先 `companies` へ
+  寄せる migration 308、パッチ盤の中身を完成図書の外観図から読み取った migration 309、TRK の系統を端子盤として扱う表示ほか。
+  Codex の Code Review が2回付き、**指摘は6件（すべて P2）**。全件をこの PR の中で直して返信・解決済み（未解決スレッド0件）。
+  **表に移す未対応の指摘は無い。**
+  ⚠️ **`813ab0b` 以降（`813ab0b`・`2aa1d31`・`8b523ab`・`5faf65a`）は Code Review が1度も走っていない。**
+  `chatgpt-codex-connector` が **usage limits** のコメントを出している（04:26・04:55）。中身は 200件打ち切りと
+  空きのシングルジャックの印の直し（上の表の2件）、Tri-Level Sync の表記、main の取り込みと migration の
+  番号の振り直し（307→308・308→309）、端子盤の表示（`patchDerive.ts` の `isTerminalDevice`・`DevicePicker.tsx`・
+  `TechPanelJackTable.tsx`）。**次にこれらのファイルを触る PR で改めて目を通すこと。**
+  検証: `npx tsc -b client-techops`・`npm run lint`（0 errors）・`npm run test`（shared 2,656件・server 139件）・
+  検証用 Postgres で 001〜309 の通し適用・実ブラウザ（Chromium）で端子盤の候補と印・検索の絞り込み。
+
+| PR | 重み | 場所 | 指摘 | 状態 |
+| --- | --- | --- | --- | --- |
+| #737 | P2 | `client-techops/src/pages/tech/CreatePanelDialog.tsx` | 盤の名前を入力して 500ms 以内に Enter を押すと、確定前の古い値で送られる | ⭕️ #737 内の `c68af99`（各欄の値を ref に控え、送る前にフォーカス中の欄を確定させる） |
+| #737 | P2 | `server/src/contexts/qsheet/services/tech-master.service.ts`（会社を追加） | 同名の顧客だけの取引先を再利用すると、一覧（仕入先か人員のいる会社だけ）から消えて選べない | ⭕️ #737 内の `c68af99`（`?include=<id>` で返った会社を必ず一覧に含める） |
+| #737 | P2 | `server/src/contexts/qsheet/services/tech-master.service.ts`（会社を追加・2件目） | 上と同じ原因（役割の無い取引先の再利用） | ⭕️ #737 内の `c68af99`（上と同じ直し） |
+| #737 | P2 | `client-techops/src/pages/tech/CreatePanelDialog.tsx`（TRK） | 種類を TRK にしても ch数が 48 のまま作れる | ⭕️ #737 内の `c68af99`（画面で 32 に固定・サーバーでも 32 以外を拒否） |
+| #737 | P2 | `server/src/contexts/qsheet/services/production/doc-list.service.ts` | 種類ごとに200件で打ち切ってから数えるため、200件を超えると後ろのページが空・total が200に張り付く | ⭕️ #737 内の `813ab0b`（件数は COUNT・行は page × limit 件だけ取る） |
+| #737 | P2 | `server/src/shared/db/migrations/309_tech_patch_panels_transcribed.sql` | 機材名の無いシングルジャック・色付きの番号（47件）の備考が入らない | ⭕️ #737 内の `813ab0b`（機材名が空で備考も空の行だけ備考を入れる） |
+
 - **#735**（`feat(wiki): 段F（見直しとコメント）— これで設計 §9 の段A〜段F が全部そろった`・
   2026-09-23 マージ）—— Wiki の段F。見直しの画面（`/wiki/review`・3タブ）、ページのコメント、
   毎月1日の通知、案件詳細と機材詳細からの導線を足した。**これで設計 §9 の段A〜段F が全部そろい、
@@ -2642,7 +2664,7 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 - **#731**（`feat(techops): 新ミニアプリ「技術資料」（映像パッチ・技術スタッフ・パッチ盤・技術人員）を作った`・
   2026-09-22）—— 制作技術支援の10個目のミニアプリ。Codex の Code Review が2回（`5e388d2`・`4257629`）付き、
   **指摘は8件（P1 1件・P2 7件）**。1回目の5件はこの PR の中で直して返信・解決済み（`4257629`）。
-  **2回目の3件は付いた直後にマージされた**ため、同じ枝を main から作り直して直した（後続の PR）。
+  **2回目の3件は付いた直後にマージされた**ため、同じ枝を main から作り直して直した（#737）。
   Security Review は指摘0件。
 
 | PR | 重み | 場所 | 指摘 | 状態 |
@@ -2652,9 +2674,9 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 | #731 | P2 | `client-techops/src/pages/tech/TechDocPrintSheet.tsx` | 2列の 58%／42% に 8mm の余白が足され、A4 の文字の範囲からはみ出す | ⭕️ #731 内の `4257629`（flex で余白込みに割り振る） |
 | #731 | P2 | `client-techops/src/pages/tech/TechDocListPage.tsx`（版） | 一覧は第{rev+1}版、書き出し・運営マニュアルは第{rev}版で食い違う | ⭕️ #731 内の `4257629`（`revLabel` 1本に統一） |
 | #731 | P2 | `client-techops/src/hooks/useTechDoc.ts` | 行の書き込みで資料の `updated_at` が進むのに手元が古いままで、直後の名前変更が 409 で捨てられる | ⭕️ #731 内の `4257629`（応答に `doc_updated_at` を返して合わせる） |
-| #731 | P2 | `server/src/contexts/qsheet/services/tech-doc.service.ts`（複製） | 複製で資料本体を先に確定してから行を写すため、途中で失敗すると一部の行だけの資料が残る | ⭕️ 後続の PR（同じ枝 `claude/trusting-johnson-peuf0d` を main から作り直し。本体と行の複製を1トランザクションに） |
-| #731 | P2 | `client-techops/src/pages/tech/TechPanelsPage.tsx` | 「盤を追加」がお知らせを出すだけで、盤を作る処理を呼ばない | ⭕️ 後続の PR（`CreatePanelDialog.tsx` で盤の名前・ch数・種類・場所・型番を入れて作成） |
-| #731 | P2 | `client-techops/src/pages/tech/TechDocListPage.tsx`（権限） | 閲覧だけの人にも作成・複製・削除が出て、押すと必ず 403 | ⭕️ 後続の PR（`qsheet` editor で出し分け。資料画面のメニューも同じ） |
+| #731 | P2 | `server/src/contexts/qsheet/services/tech-doc.service.ts`（複製） | 複製で資料本体を先に確定してから行を写すため、途中で失敗すると一部の行だけの資料が残る | ⭕️ #737（同じ枝 `claude/trusting-johnson-peuf0d` を main から作り直し。本体と行の複製を1トランザクションに） |
+| #731 | P2 | `client-techops/src/pages/tech/TechPanelsPage.tsx` | 「盤を追加」がお知らせを出すだけで、盤を作る処理を呼ばない | ⭕️ #737（`CreatePanelDialog.tsx` で盤の名前・ch数・種類・場所・型番を入れて作成） |
+| #731 | P2 | `client-techops/src/pages/tech/TechDocListPage.tsx`（権限） | 閲覧だけの人にも作成・複製・削除が出て、押すと必ず 403 | ⭕️ #737（`qsheet` editor で出し分け。資料画面のメニューも同じ） |
 
 - **#730**（`feat(wiki): 段D（検索）— 検索・お気に入り・リンク元・\`.md\` の出入口`・
   2026-09-22）—— Wiki の段D。検索の API と画面（`/search`）、どの画面からでも開く小窓
