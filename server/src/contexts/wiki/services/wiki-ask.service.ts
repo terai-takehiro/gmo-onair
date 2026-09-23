@@ -17,7 +17,7 @@
  * 1行残します — 残さないと**答えられなかった割合**（条件3）が数えられず、
  * 「AI が賢くなったのか、聞かれなくなっただけなのか」が区別できません。
  */
-import { execute } from '../../../shared/db/connection';
+import { execute, queryOne } from '../../../shared/db/connection';
 import { recordAiOutput } from '../../../shared/services/ai-output.service';
 import { ValidationError } from '../../qsheet/services/httpErrors';
 import { normalizeQuestion } from '../wiki-markdown';
@@ -59,7 +59,6 @@ export interface AskResult {
   no_answer: boolean;
 }
 
-/** 会話の1行を積む。`seq` は `UNIQUE (thread_id, seq)` なので取り合いにならない */
 /**
  * 発言を1つ足す。**番号（`seq`）は入れる瞬間に DB 側で採ります。**
  *
@@ -73,11 +72,21 @@ export interface AskResult {
  * ⚠️ **それでも稀に衝突します**（2つの `INSERT` が同じ瞬間に同じ `MAX` を読む）。
  * そのときは一意制約が弾くので、**数回だけ採り直します**。諦めるより、
  * 番号が1つ飛ぶほうがましです。
+ *
+ * ⚠️ **質問は奇数、その答えは「質問の番号 + 1」に入れます**（#733 の再レビュー・Codex 指摘・P2）。
+ * 質問を入れた時点で答えの番号を**予約**する形です。どちらも「その時点の最大 + 1」で
+ * 採っていたころは、同じ会話に2問続けて送ると `質問1, 質問2, 答え2, 答え1` の順に
+ * 並ぶことがあり（先に終わったほうの答えが先に入る）、画面は並び順で質問と答えを
+ * 組にするので、**答えが別の質問に付いて見え**、「ページにする」の題も取り違えていました。
+ * 質問は「最大より大きい最小の奇数」を採るので、答えを待っている偶数の番号は取りません。
+ * 答えが落ちた回は偶数が1つ空くだけです（並びは崩れません）。
  */
 async function addMessage(
   threadId: string,
   role: 'user' | 'assistant',
   contentMd: string,
+  /** 答えのとき: 質問の番号（その + 1 に入れる）。質問のときは渡さない */
+  questionSeq: number | null,
   extra: {
     citations?: WikiVerifiedCitation[];
     confidence?: 'cited' | 'none';
@@ -85,27 +94,41 @@ async function addMessage(
     model?: string | null;
     promptVersion?: string | null;
   } = {},
-): Promise<string> {
+): Promise<{ id: string; seq: number }> {
   const id = newMessageId();
-  // 並びは SQL の `?` と1対1。最後の1つは `WHERE thread_id`（番号を数える先）
-  const params = [
-    id, threadId, role, contentMd,
+  const values = [
+    role, contentMd,
     extra.citations ? JSON.stringify(extra.citations) : null,
     extra.confidence ?? null,
     extra.outputId ?? null, extra.model ?? null, extra.promptVersion ?? null,
-    threadId,
   ];
   for (let tries = 0; ; tries += 1) {
     try {
-      await execute(
+      /*
+       * 番号の決め方（冒頭の注記）:
+       *   - 質問 … 最大より大きい最小の奇数（`MAX + 1 + MAX % 2`）
+       *   - 答え … 質問の番号 + 1（予約した偶数）。**採り直しになったら**最大 + 1 に退く
+       *     （古い会話の番号の並びが崩れているときの逃げ道。答えを落とすよりまし）
+       */
+      const reserved = questionSeq !== null && tries === 0;
+      // ⚠️ 予約した番号のときは `FROM wiki_ai_messages` を付けない（集計が無いと行の数だけ入る）
+      const source = reserved
+        ? `SELECT ?, ?, ?::int, ?, ?, ?::jsonb, ?, ?, ?, ?`
+        : `SELECT ?, ?, ${role === 'user'
+          ? 'COALESCE(MAX(seq), 0) + 1 + COALESCE(MAX(seq), 0) % 2'
+          : 'COALESCE(MAX(seq), 0) + 1'}, ?, ?, ?::jsonb, ?, ?, ?, ?
+             FROM wiki_ai_messages WHERE thread_id = ?`;
+      const row = await queryOne(
         `INSERT INTO wiki_ai_messages
            (id, thread_id, seq, role, content_md, citations, confidence,
             ai_output_id, model, prompt_version)
-         SELECT ?, ?, COALESCE(MAX(seq), 0) + 1, ?, ?, ?::jsonb, ?, ?, ?, ?
-           FROM wiki_ai_messages WHERE thread_id = ?`,
-        params,
+         ${source}
+         RETURNING seq`,
+        reserved
+          ? [id, threadId, Number(questionSeq) + 1, ...values]
+          : [id, threadId, ...values, threadId],
       );
-      return id;
+      return { id, seq: Number(row?.seq ?? 0) };
     } catch (e) {
       // 一意制約（23505）だけ採り直す。ほかの失敗はそのまま上へ
       const code = (e as { code?: string }).code;
@@ -154,7 +177,7 @@ export async function ask(user: WikiUser, input: AskInput): Promise<AskResult> {
 
   const materials = await gatherMaterials(user, { question, pageId: contextPageId, spaceId });
 
-  await addMessage(threadId, 'user', question);
+  const asked = await addMessage(threadId, 'user', question, null);
   await titleThreadIfEmpty(threadId, question);
 
   const normalized = normalizeQuestion(question);
@@ -252,7 +275,7 @@ export async function ask(user: WikiUser, input: AskInput): Promise<AskResult> {
     actorId: user.id,
   });
 
-  const messageId = await addMessage(threadId, 'assistant', contentMd, {
+  const { id: messageId } = await addMessage(threadId, 'assistant', contentMd, asked.seq, {
     citations, confidence, outputId, model, promptVersion,
   });
   if (outputId) {

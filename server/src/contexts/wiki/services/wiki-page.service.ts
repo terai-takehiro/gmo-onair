@@ -273,6 +273,8 @@ export async function savePageInternal(
     ? undefined
     : await checkedRowProps(pageId, input.props);
 
+  /** 下書きから公開に進めた保存か（下の ⑦ で使う） */
+  let publishedNow = false;
   await withTransaction(async (tx) => {
     // 同じページへの同時保存を直列にする（FOR UPDATE）。突き合わせだけでは、
     // 2人が同じ `updated_at` を持って同時に来たときに両方が通ってしまう
@@ -289,6 +291,7 @@ export async function savePageInternal(
       [pageId],
     );
     if (!cur) throw new NotFoundError('ページが見つかりません');
+    publishedNow = cur.status === 'draft' && input.status === 'published';
 
     // 編集ロック（§6-③）。**本文・題を変えるときだけ**見る —
     //    情報の欄（担当・見直し予定・タグ・アイコン）は編集中の人が居ても直せる（§6-②）。
@@ -360,8 +363,14 @@ export async function savePageInternal(
    * ⚠️ **本文・題を触った保存だけ**を数えます。担当・タグ・見直し予定を直しただけの
    * 保存まで数えると、**情報の欄を埋めた人が「AI を直した人」**になります
    * （メール取込で `status` / `handled_at` を数えなかったのと同じ判断）。
+   *
+   * ⚠️ **ただし下書き → 公開の保存は数えます**（#733 の再レビュー・Codex 指摘・P2）。
+   * AI の下書きを1文字も直さずに「公開」を押すと、自動保存が送るのは `status` だけなので、
+   * 上の条件では記録が1行も残らず、**いちばん良い結果（無修正で採用）だけが分母から
+   * 抜けて**無修正採用率が低く出ていました。公開は「この中身で良い」という判断そのものです。
    */
-  if (!opts.skipAiFeedback && (input.body_md !== undefined || input.title !== undefined)) {
+  const touchedContent = input.body_md !== undefined || input.title !== undefined;
+  if (!opts.skipAiFeedback && (touchedContent || publishedNow)) {
     await recordWikiDraftCorrections(
       pageId,
       {

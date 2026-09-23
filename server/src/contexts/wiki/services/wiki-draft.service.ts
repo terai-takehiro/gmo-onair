@@ -202,6 +202,24 @@ export async function draftPage(user: WikiUser, input: DraftInput): Promise<Draf
   }
 
   const materials = await gatherDraftMaterials(user, input, gapQuestion);
+
+  /*
+   * 「ページにする」を押した回答（`message_id`）は、**AI を呼ぶ前に**確かめます
+   * （#733 の再レビュー・Codex 指摘・P2）。確かめずに採用の印を付けていたころは、
+   * 質問の行・別の会話の回答・（id を知っていれば）**他人の回答**にも印が付き、
+   * 画面のリンクと採用率が壊れ、他人の記録を書き換えられました。
+   * 条件: **材料にした自分の会話**（上で読めたもの）の中の、**AI の回答**であること。
+   */
+  if (input.messageId) {
+    const threadId = materials.refs.thread_id;
+    const msg = threadId
+      ? await queryOne(
+        "SELECT id FROM wiki_ai_messages WHERE id = ? AND thread_id = ? AND role = 'assistant'",
+        [String(input.messageId), threadId],
+      )
+      : null;
+    if (!msg) throw new NotFoundError('元にした回答が見つかりません');
+  }
   if (!materials.block.trim()) {
     throw new ValidationError('材料がありません。会話・メモ・参考にするページのどれかを指定してください。');
   }
