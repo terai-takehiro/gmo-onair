@@ -254,7 +254,7 @@ export async function createPage(user: WikiUser, input: CreatePageInput): Promis
      * 中に入れておけば、落ちたときは**ページごと巻き戻る**ので、押し直しが
      * そのままきれいなやり直しになります。
      */
-    if (input.gap_id) await markGapWrittenTx(tx, String(input.gap_id), pageId, user.id);
+    if (input.gap_id) await markGapWrittenTx(tx, String(input.gap_id), pageId, user);
     await rebuildPageLinks(tx, pageId, body);
   });
 

@@ -224,11 +224,36 @@ export async function markGapWrittenTx(
   tx: TxClient,
   gapId: string,
   pageId: string,
-  userId: string,
+  user: WikiUser,
 ): Promise<void> {
+  /*
+   * ⚠️ **押さえる瞬間に、もう一度「見てよい質問か」を同じ取引の中で見ます**（#740 の Codex 指摘・P1）。
+   * 入口の `readOpenGapFor` は AI を呼ぶ前なので、長い呼び出しの間に「メンバーだけ」の
+   * スペースから外された manager が、その質問を片づけ、結果を別のスペースの下書きに
+   * 書けました。質問の行を `FOR UPDATE`、棚のスペースを `FOR SHARE` で押さえてから
+   * 見るので、スペースの変更（`FOR UPDATE`）とも直列になります。見られなければ 404。
+   */
+  if (!isWikiManager(user)) throw new NotFoundError('足りないページの質問が見つかりません');
+  const gap = await tx.queryOne('SELECT space_id FROM wiki_ai_gaps WHERE id = ? FOR UPDATE', [gapId]);
+  if (!gap) throw new NotFoundError('足りないページの質問が見つかりません');
+  if (gap.space_id && user.role !== 'system_admin') {
+    const space = await tx.queryOne(
+      'SELECT visibility FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR SHARE',
+      [String(gap.space_id)],
+    );
+    const member = space && space.visibility !== 'all'
+      ? await tx.queryOne(
+        'SELECT 1 AS ok FROM wiki_space_members WHERE space_id = ? AND user_id = ?',
+        [String(gap.space_id), user.id],
+      )
+      : null;
+    if (!space || (space.visibility !== 'all' && !member)) {
+      throw new NotFoundError('足りないページの質問が見つかりません');
+    }
+  }
   // ⚠️ `RETURNING` で**当たったか**を見る。当たらない（消えた・id が違う）ときに
   //    黙って通すと、ページだけできて質問は結びつかないまま＝直したい状態に戻る
-  const row = await tx.queryOne(`${MARK_GAP_WRITTEN_SQL} RETURNING id`, [pageId, userId, gapId]);
+  const row = await tx.queryOne(`${MARK_GAP_WRITTEN_SQL} RETURNING id`, [pageId, user.id, gapId]);
   // 当たらなかった理由（無い／もう片づいている）で文言を分ける。どちらでも取引ごと巻き戻る
   if (!row) await assertGapOpen(gapId, tx);
 }

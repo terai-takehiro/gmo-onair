@@ -264,7 +264,7 @@ export async function draftPage(user: WikiUser, input: DraftInput): Promise<Draf
      * 書き換えが落ちたら押さえを戻します。
      */
     const gapId = input.gapId ? String(input.gapId) : null;
-    if (gapId) await withTransaction((tx) => markGapWrittenTx(tx, gapId, pageId, user.id));
+    if (gapId) await withTransaction((tx) => markGapWrittenTx(tx, gapId, pageId, user));
     try {
       await savePageInternal(
         pageId,
