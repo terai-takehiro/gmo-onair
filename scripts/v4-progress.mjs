@@ -382,6 +382,11 @@ const TREE = [
       'client-wiki/src/pages/importexport/TransferPage.tsx', undefined,
       'スペースまるごとの zip 書き出しと、Obsidian・Notion・ONAiR の zip の取り込み。' +
       '設計 §5-2 の約束3「外から読めて書ける」の画面側。**PC の画面**'],
+    ['スペース管理', '/wiki/spaces',
+      'client-wiki/src/pages/spaces/SpacesPage.tsx', undefined,
+      'スペースの追加・編集（名前・説明・閲覧範囲・担当）・削除と、「メンバーだけ」のスペースのメンバー。' +
+      '区画 `wiki` の manager だけ。⚠️ **管理の画面でも読めないスペースは出さない**（§8「存在ごと見えない」）。' +
+      '担当は必ずメンバーに加える（締め出すと見直しの通知が届かない）。**PC の画面**'],
   ]],
 ];
 

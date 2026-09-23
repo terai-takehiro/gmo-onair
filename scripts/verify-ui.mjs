@@ -232,6 +232,8 @@ const PAGES = [
   ['Wiki AI に聞く', '/wiki/ask'],
   // 段F。3タブのうち既定（見直し予定）の状態を見る
   ['Wiki 見直し', '/wiki/review'],
+  // スペース管理（manager・PC の画面）。一覧の状態を見る（シートは開かない）
+  ['Wiki スペース管理', '/wiki/spaces'],
   // リアルタイムCG (`/awards/*`) は廃止済み。サーバーが配信しないので検査対象からも外した
   // (`client-awards/CLAUDE.md` 参照)。
 ];

@@ -2566,6 +2566,12 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
 
 ## 一覧（PR の新しい順）
 
+- **#738**（`docs(reviews): #735（Wiki 段F）のレビュー指摘を棚卸しに記録した`・2026-09-23 マージ）——
+  #735 の棚卸しと、見張りの最中に踏んだ落とし穴3つの記録（`.claude/skills/pr-watch/references/pitfalls.md`）。
+  文書だけの PR。⚠️ **Code Review は Codex の利用上限で1度も走らないままマージされた**（Security Review は
+  `d7eabaf` で完了・指摘0件。pitfalls を足した最終コミット `7c72d2e` には走っていない）。
+  **「レビュー0件」は「指摘なし」ではない**ので、その旨だけ残す。CI は `build` `checks` とも成功。
+
 - **#735**（`feat(wiki): 段F（見直しとコメント）— これで設計 §9 の段A〜段F が全部そろった`・
   2026-09-23 マージ）—— Wiki の段F。見直しの画面（`/wiki/review`・3タブ）、ページのコメント、
   毎月1日の通知、案件詳細と機材詳細からの導線を足した。**これで設計 §9 の段A〜段F が全部そろい、

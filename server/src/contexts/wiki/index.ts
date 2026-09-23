@@ -11,6 +11,7 @@ import mdRoutes from './routes/md.routes';
 import aiRoutes from './routes/ai.routes';
 import commentsRoutes from './routes/comments.routes';
 import reviewRoutes from './routes/review.routes';
+import spaceAdminRoutes from './routes/space-admin.routes';
 
 /**
  * Wiki（新しいブロックアプリ）— Markdown で書いた文章をツリーに並べ、
@@ -77,6 +78,13 @@ import reviewRoutes from './routes/review.routes';
  *   DELETE /wiki/comments/:id           消す（**書いた本人か manager だけ**）
  *   GET    /wiki/comments/outcome       AI から生まれたページに付いたコメント（manager）
  *   GET    /wiki/review                 見直し予定のページ（3区分・件数・「見直した」の記録）
+ *
+ * スペース管理（manager・§8）:
+ *   GET    /wiki/manage/spaces                      管理用の一覧
+ *   POST   /wiki/manage/spaces                      追加
+ *   PATCH  /wiki/manage/spaces/:id                  編集（key は変えられない）
+ *   DELETE /wiki/manage/spaces/:id                  削除（ページが残っていれば 400）
+ *   GET/PUT/DELETE /wiki/manage/spaces/:id/members[/:userId]  メンバー
  *   POST   /wiki/pages/:id/reviewed     「見直した」＝次の予定日を入れ直す（editor）
  *
  * 見直しの3つのタブのうち、②足りないページと③AI の直され方は**段E の口をそのまま**
@@ -106,6 +114,8 @@ export function createWikiRoutes(): Router {
   // `aiRoutes` の `/pages/:id/draft` と同じ理由でページの書き込みより**先**に置きます
   router.use('/wiki', commentsRoutes);
   router.use('/wiki', reviewRoutes);
+  // スペース管理（manager）。`/manage/spaces` は `spaces.routes.ts` の `/spaces/:key` と別の道
+  router.use('/wiki', spaceAdminRoutes);
   router.use('/wiki', pagesWriteRoutes);
   router.use('/wiki', pagesRoutes);
   return router;

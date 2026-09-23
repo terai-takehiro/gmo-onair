@@ -29,6 +29,13 @@ export const WIKI_PC_ONLY: PcOnlyEntry[] = [
     // テンプレートから作ること自体は「ページを追加」でスマホでもできる
     instead: { label: 'ページを追加する', to: '/' },
   },
+  {
+    path: '/spaces',
+    what: 'スペース管理',
+    why: '閲覧範囲とメンバーを決める画面です。誰に見えるかが変わる操作なので、一覧と中身を見比べながら落ち着いて操作できる幅で使ってください。',
+    // 設計 §6-⑧ と canvas.json の付箋で「スペース管理は WIKI_PC_ONLY」と決めてある
+    instead: { label: 'Wiki のホームへ', to: '/' },
+  },
 ];
 
 /**
