@@ -80,6 +80,12 @@ function newCommentId(): string {
  *
  * ⚠️ **入れ子は1段だけ**です。親が消されている返信は**親の無い返信として
  * 上に並べます** — 親ごと隠すと、現場が残した指摘が道連れで消えます。
+ *
+ * ⚠️ 上に上げた返信は **`parent_id` を `null` にして返します**
+ * （Codex レビュー指摘・#735）。`parent_id` を持ったまま根に並べると、
+ * 画面は「根＝返信できる」と見て返信欄を出すのに、`addComment` が
+ * 「返信への返信」と見て 400 で断る、という食い違いが起きます。
+ * サーバー側（`addComment`）も、**親が消えている返信は根として扱います**。
  */
 export async function listComments(user: WikiUser, pageId: string): Promise<Row[]> {
   await assertReadablePage(user, pageId);
@@ -105,7 +111,11 @@ export async function listComments(user: WikiUser, pageId: string): Promise<Row[
     const parent = r.parent_id ? byId.get(String(r.parent_id)) : undefined;
     // 親が消えている／同じページに無い返信は、根に上げて必ず見えるようにする
     if (parent && parent !== node) (parent.replies as Row[]).push(node);
-    else top.push(node);
+    else {
+      // 上げた以上は根として扱う（`parent_id` を残すと返信欄だけ出て 400 になる）
+      node.parent_id = null;
+      top.push(node);
+    }
   }
   return top;
 }
@@ -149,7 +159,15 @@ export async function addComment(
       throw new NotFoundError('返信先のコメントが見つかりません');
     }
     if (parent.parent_id) {
-      throw new ValidationError('返信への返信はできません。元のコメントに返信してください。');
+      // 親の親が**まだ生きている**ときだけ断る。消えているなら、その返信は
+      // `listComments` が根に上げたもの（画面にも根として出ている）なので受ける
+      const grand = await queryOne(
+        'SELECT id FROM wiki_comments WHERE id = ? AND deleted_at IS NULL',
+        [parent.parent_id],
+      );
+      if (grand) {
+        throw new ValidationError('返信への返信はできません。元のコメントに返信してください。');
+      }
     }
     parentId = String(parent.id);
   }
@@ -276,6 +294,13 @@ export async function deleteComment(user: WikiUser, commentId: string): Promise<
  * ⚠️ **AI の出力より前のコメントは数えません。** ページを作る前に付いた
  * コメント（取り込みで後から `ai_output_id` を結んだページなど）まで数えると、
  * AI と関係のない指摘が AI の成果に混ざります。
+ *
+ * ⚠️ **1ページ＝1行にしてから数えます**（Codex レビュー指摘・#735）。
+ * 「回答からページにする」は、**新しい下書き**（`wiki_pages.ai_output_id`）と
+ * **元の回答**（`wiki_ai_messages.spawned_page_id`）の**両方**を結ぶので、
+ * `UNION` のままだと同じページが2行出て、ページ数もコメント数も**倍になります**。
+ * 残すのは**いちばん古い出力**です — そこから後のコメントを数えるので、
+ * 新しいほうを採ると、回答からページになるまでの間に付いた指摘が落ちます。
  */
 const AI_PAGE_CTE = `
   WITH src AS (
@@ -289,8 +314,13 @@ const AI_PAGE_CTE = `
       FROM wiki_ai_messages m
       JOIN ai_outputs o ON o.id = m.ai_output_id
       JOIN wiki_pages p ON p.id = m.spawned_page_id AND p.deleted_at IS NULL
+  ), one_per_page AS (
+    -- 同じ id で並べ替えの結果が変わらないよう、日付が同着なら id で決める
+    SELECT DISTINCT ON (page_id) *
+      FROM src
+     ORDER BY page_id, created_at ASC, ai_output_id ASC
   ), scoped AS (
-    SELECT * FROM src
+    SELECT * FROM one_per_page
      WHERE created_at >= NOW() - (? || ' days')::interval
        AND space_id = ANY(?)
   ), counted AS (

@@ -37,10 +37,11 @@ function has(b: Record<string, unknown>, key: string): boolean {
 }
 
 /**
- * 見直し予定の一覧（reader）。`?bucket=` で区分を絞れます。
+ * 見直し予定の一覧（reader）。`?bucket=` で区分を、`?space=` でスペースを絞れます。
  *
  * 絞り込みを**サーバー側**に置いてあるのは、一覧に上限があるためです。
- * 画面で絞ると、上限で切られた先にある行が見えません。
+ * 画面で絞ると、上限で切られた先にある行が見えません
+ * （`?space=` は Codex レビュー指摘・#735 で画面側から移しました）。
  */
 router.get('/review', ...canRead, wrap(async (req, res) => {
   const bucket = p1(req.query.bucket as string | string[] | undefined);
@@ -48,9 +49,11 @@ router.get('/review', ...canRead, wrap(async (req, res) => {
     throw new ValidationError('区分の指定が正しくありません。');
   }
   const limit = Number(p1(req.query.limit as string | string[] | undefined));
+  const space = p1(req.query.space as string | string[] | undefined);
   const data = await listReview(req.user!, {
     bucket: bucket ? (bucket as WikiReviewBucket) : undefined,
     limit: Number.isFinite(limit) && limit > 0 ? limit : undefined,
+    ...(space ? { space_id: space } : {}),
   });
   res.json({ success: true, data });
 }));

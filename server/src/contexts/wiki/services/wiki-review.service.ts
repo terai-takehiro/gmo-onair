@@ -67,9 +67,14 @@ export type WikiReviewBucket = (typeof WIKI_REVIEW_BUCKETS)[number];
 /**
  * 見直しの対象になるページ（§6-⑦）。
  *
- * - `overdue` … 予定日を過ぎた（画面の表示は「要見直し」）
- * - `soon` … 予定日まで14日以内
  * - `no_owner` … 担当が空（**予定日の有無にかかわらず** — 見直す人がいない）
+ * - `overdue` … 担当がいて、予定日を過ぎた（画面の表示は「要見直し」）
+ * - `soon` … 担当がいて、予定日まで14日以内
+ *
+ * ⚠️ **担当が空かどうかを日付より先に見ます**（Codex レビュー指摘・#735）。
+ * 日付を先に見ると、担当が空で予定日も過ぎているページが `overdue` に入り、
+ * 「担当なし」の数と月初の通知が実態より少なく出ます。**担当を決めるのが先**
+ * （見直す人がいないページは、予定日を入れ直しても誰も見ません）。
  *
  * ⚠️ **テンプレートとデータベースの行は外します。** テンプレートは
  * 「これから書く人の雛形」で読み直す中身がなく、行（データベースの子ページ）は
@@ -89,10 +94,10 @@ function candidateCte(extraWhere: string): string {
              (SELECT MAX(r.reviewed_at) FROM wiki_reviews r WHERE r.page_id = p.id)
                AS last_reviewed_at,
              CASE
+               WHEN p.owner_user_id IS NULL THEN 'no_owner'
                WHEN p.review_by IS NOT NULL AND p.review_by < ?::date THEN 'overdue'
                WHEN p.review_by IS NOT NULL
                     AND p.review_by <= (?::date + ${WIKI_REVIEW_SOON_DAYS}) THEN 'soon'
-               WHEN p.owner_user_id IS NULL THEN 'no_owner'
              END AS bucket
         FROM wiki_pages p
         JOIN wiki_spaces s ON s.id = p.space_id AND s.deleted_at IS NULL
@@ -114,6 +119,13 @@ const BUCKET_ORDER = `CASE bucket WHEN 'overdue' THEN 0 WHEN 'soon' THEN 1 ELSE 
 export interface ListReviewInput {
   bucket?: WikiReviewBucket;
   limit?: number;
+  /**
+   * スペースで絞る。**SQL の `LIMIT` より先に当てます**（Codex レビュー指摘・#735）。
+   * 画面側で返ってきた行を絞ると、**上限の先にある行は最初から手元に無い**ので、
+   * そのスペースに見直すページがあっても「0件」に見えます。
+   * 読めないスペースを指定されたときは 403 ではなく**空**で返します（§8）。
+   */
+  space_id?: string;
 }
 
 export interface WikiReviewList {
@@ -134,7 +146,9 @@ export async function listReview(user: WikiUser, input: ListReviewInput = {}): P
   const empty: WikiReviewList = {
     rows: [], counts: { overdue: 0, soon: 0, no_owner: 0 }, recent_reviews: [],
   };
-  const spaceIds = await readableSpaceIds(user);
+  const all = await readableSpaceIds(user);
+  // 指定されたスペースは**読める範囲と重ねてから**使う（読めないスペースは空で返す）
+  const spaceIds = input.space_id ? all.filter((id) => id === input.space_id) : all;
   if (spaceIds.length === 0) return empty;
 
   const today = jstDate();
@@ -178,7 +192,16 @@ export async function listReview(user: WikiUser, input: ListReviewInput = {}): P
   };
 }
 
-/** 直近の「見直した」の記録（§7-3 条件5「担当の名前と『見直した』の記録」） */
+/**
+ * 直近の「見直した」の記録（§7-3 条件5「担当の名前と『見直した』の記録」）。
+ *
+ * ⚠️ **公開ページの記録だけを出します**（Codex レビュー指摘・#735）。
+ * `markReviewed` は `assertReadablePage` を通すので**自分の下書きでも押せます**が、
+ * ここはスペース単位でしか絞っていなかったため、その1行を通じて
+ * **下書きの題がスペースの全員に見えて**いました（§8「下書きは書いた本人・
+ * 担当・管理者だけ」）。一覧（`candidateCte`）が公開ページだけを見るのと
+ * 同じ線引きに揃えます。
+ */
 async function listRecentReviews(spaceIds: string[]): Promise<Row[]> {
   return queryAll(
     `SELECT r.id, r.page_id, p.title AS page_title, s.name AS space_name,
@@ -190,6 +213,7 @@ async function listRecentReviews(spaceIds: string[]): Promise<Row[]> {
        JOIN wiki_spaces s ON s.id = p.space_id
        LEFT JOIN users u ON u.id = r.reviewed_by
       WHERE p.space_id = ANY(?)
+        AND p.status = 'published'
       ORDER BY r.reviewed_at DESC
       LIMIT ${REVIEW_LOG_LIMIT}`,
     [spaceIds],

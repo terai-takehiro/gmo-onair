@@ -19,6 +19,11 @@
  * ⚠️ **`counts` は上限（サーバー側 300件）で切る前の数**です。区分ごとの件数は
  * `rows` を数えずにこちらを使います（切られた先の行が数から落ちるため）。
  *
+ * ⚠️ **スペースの絞り込みはサーバーに渡します**（`?space=`・Codex レビュー指摘・#735）。
+ * 返ってきた行を画面で絞ると、**上限で切られた先にある行は手元に無い**ので、
+ * そのスペースに見直すページがあっても「0件」に見えます。同じ理由で
+ * 足りないページ（既定50件）も `?space=` をサーバーに渡します。
+ *
  * ⚠️ **「期限切れ」という言葉は画面にもこのファイルにも出しません。**
  * Wiki のページは予定日を過ぎても中身が無効になるわけではない、という
  * 利用者のご指摘（2026-09-22）。区分の値は `overdue`／`soon`／`no_owner` の
@@ -47,8 +52,13 @@ export const WIKI_REVIEW_URL = {
 
 export const reviewKeys = {
   all: ['wiki', 'review'] as const,
-  due: () => ['wiki', 'review', 'due'] as const,
-  gaps: (status: WikiGapStatus | 'all') => ['wiki', 'review', 'gaps', status] as const,
+  // ⚠️ **スペースは鍵に入れます。** 入れないと、絞り込みを変えても
+  //    前のスペースの結果が使い回されます（サーバーに投げる条件が鍵に無いため）
+  due: (spaceId = '') => ['wiki', 'review', 'due', spaceId] as const,
+  /** 絞り込みをまたいでまとめて古くするときの前の部分 */
+  duePrefix: ['wiki', 'review', 'due'] as const,
+  gaps: (status: WikiGapStatus | 'all', spaceId = '') =>
+    ['wiki', 'review', 'gaps', status, spaceId] as const,
   digest: (windowDays: number) => ['wiki', 'review', 'digest', windowDays] as const,
 };
 
@@ -294,25 +304,36 @@ type Opts<T> = Omit<UseQueryOptions<T, Error, T, readonly unknown[]>, 'queryKey'
  * 見直し予定のページ。**区画ごとに諦められるように**、3つのタブは別々の
  * 問い合わせにしてあります（1つの 404 で画面全体が白紙にならない）。
  */
-export function useReviewDue(enabled: boolean, opts?: Opts<WikiReviewList>) {
+export function useReviewDue(enabled: boolean, spaceId = '', opts?: Opts<WikiReviewList>) {
   return useQuery({
-    queryKey: reviewKeys.due(),
+    queryKey: reviewKeys.due(spaceId),
     enabled,
-    queryFn: async ({ signal }) => toReviewList(await pick<unknown>(WIKI_REVIEW_URL.review, signal)),
+    queryFn: async ({ signal }) => toReviewList(
+      // 絞り込みは**サーバーの LIMIT より先**に当てる（画面で絞ると上限の先が見えない）
+      await pick<unknown>(WIKI_REVIEW_URL.review, signal, spaceId ? { space: spaceId } : undefined),
+    ),
     ...opts,
   });
 }
 
 /** 足りないページ。**manager だけ**が読めます（§8）。権限が無い人には投げません */
-export function useReviewGaps(enabled: boolean, status: WikiGapStatus | 'all' = 'open', opts?: Opts<ReviewGap[]>) {
+export function useReviewGaps(
+  enabled: boolean,
+  status: WikiGapStatus | 'all' = 'open',
+  spaceId = '',
+  opts?: Opts<ReviewGap[]>,
+) {
   return useQuery({
-    queryKey: reviewKeys.gaps(status),
+    queryKey: reviewKeys.gaps(status, spaceId),
     enabled,
     queryFn: async ({ signal }) => {
+      const params: Record<string, string> = {};
+      if (status !== 'all') params.status = status;
+      if (spaceId) params.space = spaceId;
       const data = await pick<unknown>(
         WIKI_REVIEW_URL.gaps,
         signal,
-        status === 'all' ? undefined : { status },
+        Object.keys(params).length > 0 ? params : undefined,
       );
       return (Array.isArray(data) ? data : []).map(toGap).filter((g) => g.id !== '');
     },

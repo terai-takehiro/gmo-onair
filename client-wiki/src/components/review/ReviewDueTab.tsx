@@ -62,7 +62,9 @@ export default function ReviewDueTab({ rows, loading, error, onRetry, canEdit, f
     meta: { action: '「見直した」を記録' },
     mutationFn: (page: WikiReviewRow) => postPageReviewed(page.id),
     onSuccess: (_data, page) => {
-      void qc.invalidateQueries({ queryKey: reviewKeys.due() });
+      // ⚠️ **スペースの絞り込みごとに鍵が分かれる**ので、前の部分まででまとめて古くする
+      //    （`reviewKeys.due()` だけだと、絞っていないときの結果しか入れ替わらない）
+      void qc.invalidateQueries({ queryKey: reviewKeys.duePrefix });
       // ホームの案内（自分が担当で予定日を過ぎたページ）も同じ値を見ている
       void qc.invalidateQueries({ queryKey: wikiKeys.home() });
       void qc.invalidateQueries({ queryKey: wikiKeys.page(page.id) });

@@ -83,6 +83,14 @@ export async function askCountOf(question: string): Promise<number> {
 export interface ListGapsInput {
   status?: WikiGapStatus;
   limit?: number;
+  /**
+   * スペースで絞る。**SQL の `LIMIT` より先に当てます**（Codex レビュー指摘・#735）。
+   * 画面側で返ってきた行を絞ると、上限（既定50件）の先にある行は手元に無いので、
+   * そのスペースに質問が溜まっていても「0件」に見えます。
+   * ⚠️ **棚を推定できなかった行（`space_id IS NULL`）はスペースを選ぶと出ません** —
+   * どのスペースのものか分からない質問を、特定のスペースの一覧に混ぜないためです。
+   */
+  space_id?: string;
 }
 
 /**
@@ -101,6 +109,11 @@ export async function listGaps(user: WikiUser, input: ListGapsInput = {}): Promi
   if (input.status) {
     where.push('g.status = ?');
     params.push(input.status);
+  }
+  if (input.space_id) {
+    // 読める範囲の中でだけ効かせる（読めないスペースを指定されたら0件）
+    where.push('g.space_id = ? AND g.space_id = ANY(?)');
+    params.push(input.space_id, spaceIds);
   }
   return queryAll(
     `${GAP_SELECT} WHERE ${where.join(' AND ')}

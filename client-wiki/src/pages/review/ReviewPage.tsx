@@ -23,7 +23,6 @@
  * 足りないページと直され方は manager だけが読めるので（§8）、権限が無い人には
  * **投げずに**その区画の中で案内を出します — 1つの 403 で画面全体が白紙になりません。
  */
-import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ListChecks } from 'lucide-react';
 import { PageShell } from '@gmo-onair/shared/src/client/ui/pageShell';
@@ -34,7 +33,7 @@ import { useWikiSpaces } from '@/lib/wikiApi';
 import ReviewDueTab from '@/components/review/ReviewDueTab';
 import ReviewGapsTab from '@/components/review/ReviewGapsTab';
 import ReviewDigestTab from '@/components/review/ReviewDigestTab';
-import { bucketSummary, bucketTotal, countByBucket } from '@/components/review/reviewLabels';
+import { bucketSummary, bucketTotal } from '@/components/review/reviewLabels';
 import {
   REVIEW_DIGEST_WINDOW_DAYS,
   useReviewDigest,
@@ -63,30 +62,25 @@ export default function ReviewPage() {
   const { canEdit, canManage } = usePermissions();
   const spacesQ = useWikiSpaces();
 
-  const dueQ = useReviewDue(true);
+  /**
+   * スペースの絞り込みは**サーバーに渡します**（Codex レビュー指摘・#735）。
+   * 以前は返ってきた行を画面の中で絞っていましたが、一覧には上限があるので
+   * （見直し予定 300件・足りないページ 50件）、**他のスペースの行でその枠が
+   * 埋まると、選んだスペースに行があっても「0件」に見えて**いました。
+   * いまは `?space=` を渡し、SQL の `LIMIT` より先に当てています。
+   *
+   * ⚠️ これで `counts` は**絞ったあとの・上限で切る前**の数になったので、
+   * 絞っているかどうかに関係なくサーバーの数をそのまま使えます。
+   */
+  const dueQ = useReviewDue(true, spaceId);
   // 権限が無い人には投げない（403 が並ぶだけで何も出せない）
-  const gapsQ = useReviewGaps(canManage);
+  const gapsQ = useReviewGaps(canManage, 'open', spaceId);
   const digestQ = useReviewDigest(canManage);
 
-  /**
-   * スペースの絞り込みは**画面の中で当てます**。サーバーの口（`GET /wiki/review`・
-   * `GET /wiki/ai/gaps`）はスペースの指定を受けないので、3本それぞれに同じ名前を
-   * 足すより、返ってきた行をここで1回だけ絞るほうが食い違いません。
-   *
-   * ⚠️ **件数は絞っていないときだけサーバーの `counts` を使います**（上限 300件で
-   * 切る前の数）。絞っているときは手元の行から数えるので、上限に届くほど
-   * ページがある日には実態より小さく出ます — そのときは下の案内で断ります。
-   */
-  const rows = useMemo(
-    () => (spaceId ? (dueQ.data?.rows ?? []).filter((r) => r.space_id === spaceId) : dueQ.data?.rows),
-    [dueQ.data, spaceId],
-  );
-  const counts = spaceId ? countByBucket(rows) : dueQ.data?.counts;
+  const rows = dueQ.data?.rows;
+  const counts = dueQ.data?.counts;
   const clipped = (dueQ.data?.rows.length ?? 0) < (bucketTotal(dueQ.data?.counts) ?? 0);
-  const gaps = useMemo(
-    () => (spaceId ? (gapsQ.data ?? []).filter((g) => g.space_id === spaceId) : gapsQ.data),
-    [gapsQ.data, spaceId],
-  );
+  const gaps = gapsQ.data;
 
   const setParam = (key: string, value: string) => {
     const next = new URLSearchParams(sp);
@@ -98,7 +92,7 @@ export default function ReviewPage() {
 
   const hint = tab === 'due'
     ? [bucketSummary(counts) || '見直し予定日を入れたページだけが出ます',
-      clipped && !spaceId ? `多い順に ${rows?.length ?? 0}件まで出しています` : '']
+      clipped ? `多い順に ${rows?.length ?? 0}件まで出しています` : '']
       .filter(Boolean).join(' ・ ')
     : tab === 'gaps'
       ? '聞かれた回数の多い順'

@@ -213,9 +213,12 @@ router.get('/ai/gaps', ...canManage, wrap(async (req, res) => {
   if (status && !(WIKI_GAP_STATUSES as readonly string[]).includes(status)) {
     throw new ValidationError('状態の指定が正しくありません。');
   }
+  // `?space=` は **SQL の LIMIT より先**に当てる（画面で絞ると上限の先が見えない）
+  const space = p1(req.query.space as string | string[] | undefined);
   const rows = await listGaps(req.user!, {
     status: status ? (status as WikiGapStatus) : undefined,
     limit: numParam(req.query.limit),
+    ...(space ? { space_id: space } : {}),
   });
   res.json({ success: true, data: rows });
 }));

@@ -10,7 +10,7 @@
  * 区分の値（`overdue`／`soon`／`no_owner`）は**サーバーと対**なので変えません。
  * 変えるのは画面に出す言葉だけです。
  */
-import type { WikiReviewBucket, WikiReviewRow } from '@gmo-onair/shared/src/wiki/types';
+import type { WikiReviewBucket } from '@gmo-onair/shared/src/wiki/types';
 
 export type ReviewBucket = WikiReviewBucket;
 
@@ -34,19 +34,18 @@ export const BUCKET_TONE: Record<ReviewBucket, { label: string; cls: string; not
   },
 };
 
-/** 区分ごとの件数。タブの脇の案内に出す（押す前に諦められるように） */
-export function countByBucket(rows: WikiReviewRow[] | undefined): Record<ReviewBucket, number> {
-  const out: Record<ReviewBucket, number> = { overdue: 0, soon: 0, no_owner: 0 };
-  for (const r of rows ?? []) out[r.bucket] += 1;
-  return out;
-}
+/*
+ * ⚠️ **手元の行から区分の件数を数える関数はここに置きません**（Codex レビュー指摘・#735）。
+ * 一覧には上限（300件）があるので、`rows` を数えると切られた先の行が落ちます。
+ * 件数はサーバーの `counts`（上限で切る前・スペースで絞ったあと）だけを使います。
+ */
 
 /**
  * 「要見直し 3 ・ まもなく 2 ・ 担当なし 2」。0件の区分は出さない。
  *
  * ⚠️ **サーバーの `counts` を渡すこと。** 一覧には上限（300件）があるので、
- * `rows` を数えると切られた先の行が数から落ちます。スペースで絞っている
- * ときだけ、手元の行から数えた `countByBucket` を渡します。
+ * `rows` を数えると切られた先の行が数から落ちます。スペースで絞ったときも
+ * サーバーが絞ったあとの数を返すので（`?space=`）、手元で数え直しません。
  */
 export function bucketSummary(counts: Record<ReviewBucket, number> | undefined): string {
   if (!counts) return '';
