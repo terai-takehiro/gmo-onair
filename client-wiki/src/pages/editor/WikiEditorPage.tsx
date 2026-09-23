@@ -15,6 +15,8 @@
  *  3. **打つのを止めて 1.5 秒で保存**し、結果をヘッダーに出す
  *  4. 他の人が編集中なら読むだけにして、「編集を代わってほしい」と申し出られる
  *  5. スマホは下のツールバー5つ（キーボードのすぐ上）だけにする
+ *  6. **AI は「整える」と「下書きを作成」の2つ**（段E）。整えた結果は、
+ *     人が「置き換える」を押すまで本文に入らない（設計 §6-③）
  *
  * ⚠️ 画面の中に2本目のナビの列や2つ目の `☰` を作らないこと
  *    （`client-wiki/CLAUDE.md`「ナビの列は1本だけ」）。
@@ -31,6 +33,10 @@ import { useWikiAutosave } from '@/hooks/useWikiAutosave';
 import { useWikiImageInsert } from '@/hooks/useWikiImageInsert';
 import { useWikiPageLock } from '@/hooks/useWikiPageLock';
 import { useWikiPage, wikiKeys } from '@/lib/wikiApi';
+import AiDraftSheet from '@/components/ai/AiDraftSheet';
+import AiTidySheet from '@/components/ai/AiTidySheet';
+import { useWikiAiEdit } from '@/components/ai/useWikiAiEdit';
+import type { WikiDraftResult } from '@/components/ai/aiApi';
 import WikiBlockSheet from '@/components/editor/WikiBlockSheet';
 import WikiEditorHeader from '@/components/editor/WikiEditorHeader';
 import WikiEditorLockBar from '@/components/editor/WikiEditorLockBar';
@@ -120,6 +126,40 @@ function WikiEditor({ id }: { id: string }) {
 
   const apply = useCallback((edit: Edit) => { editorRef.current?.apply(edit); }, []);
   const images = useWikiImageInsert(id, apply);
+
+  /**
+   * AI が下書きを書いたあと（段E）。**サーバーは既に本文を保存しています**。
+   * 画面の本文と、次の保存に添える突き合わせの値を置き直さないと、
+   * この画面が持っている古い本文で上書きするか、409 で止まります。
+   */
+  const onDrafted = useCallback((res: WikiDraftResult) => {
+    const next = res.page;
+    setTitle(next.title);
+    setBody(next.body_md ?? '');
+    loadedRef.current = next.id;
+    autosave.reset(next);
+    // 読む画面が持っている中身に重ねる（丸ごと置くと、一覧用の列が落ちることがある）
+    queryClient.setQueryData(wikiKeys.page(next.id), (old: unknown) => ({
+      ...(old as object | undefined ?? {}),
+      ...next,
+    }));
+    // AI が題を決めたときはツリーとホームにも出る
+    if (next.title !== shownRef.current.title) {
+      shownRef.current = { title: next.title, status: next.status };
+      void queryClient.invalidateQueries({ queryKey: wikiKeys.home() });
+      if (next.space_key) void queryClient.invalidateQueries({ queryKey: wikiKeys.tree(next.space_key) });
+    }
+  }, [autosave, queryClient]);
+
+  const ai = useWikiAiEdit({
+    pageId: id,
+    status: page?.status ?? 'draft',
+    title,
+    body,
+    editorRef,
+    apply,
+    onDrafted,
+  });
 
   const onBodyChange = (next: string, opts?: { composing?: boolean }) => {
     setBody(next);
@@ -247,6 +287,9 @@ function WikiEditor({ id }: { id: string }) {
         onLink={() => apply(insertLink())}
         onPickImages={(files) => void images.insertFiles(files)}
         onOpenBlocks={() => setBlocksOpen(true)}
+        onTidy={ai.openTidy}
+        onDraft={ai.openDraft}
+        canDraft={ai.canDraft}
       />
 
       <div className="flex min-h-0 flex-1">
@@ -283,7 +326,7 @@ function WikiEditor({ id }: { id: string }) {
         onBullet={() => apply(toggleBullet)}
         onCheck={() => apply(toggleCheck)}
         onPickImages={(files) => void images.insertFiles(files)}
-        onOpenBlocks={() => setBlocksOpen(true)}
+        onTidy={ai.openTidy}
       />
 
       <WikiBlockSheet
@@ -294,6 +337,9 @@ function WikiEditor({ id }: { id: string }) {
         }}
         onPick={pickBlock}
       />
+
+      <AiTidySheet {...ai.tidySheet} />
+      <AiDraftSheet {...ai.draftSheet} />
     </div>
   );
 }

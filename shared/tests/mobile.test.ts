@@ -48,11 +48,11 @@ describe('dueLabel — 期限の見え方', () => {
     expect(dueLabel('', today).tone).toBe('none');
   });
 
-  it('今日', () => {
-    expect(dueLabel('2026-08-07', today)).toEqual({ text: '今日まで', tone: 'today' });
+  it('当日は「本日」（✕「今日まで」）', () => {
+    expect(dueLabel('2026-08-07', today)).toEqual({ text: '本日', tone: 'today' });
   });
 
-  it('**過ぎたものを「あと -2日」と出さない**', () => {
+  it('**超過したものを「残り -2日」と出さない**', () => {
     expect(dueLabel('2026-08-05', today)).toEqual({ text: '2日超過', tone: 'over' });
   });
 
@@ -60,9 +60,9 @@ describe('dueLabel — 期限の見え方', () => {
     expect(dueLabel('2026-08-06', today).text).toBe('1日超過');
   });
 
-  it('7日以内は「あと N日」', () => {
-    expect(dueLabel('2026-08-09', today)).toEqual({ text: 'あと 2日', tone: 'soon' });
-    expect(dueLabel('2026-08-14', today)).toEqual({ text: 'あと 7日', tone: 'soon' });
+  it('7日以内は「残りN日」（✕「あと N日」）', () => {
+    expect(dueLabel('2026-08-09', today)).toEqual({ text: '残り2日', tone: 'soon' });
+    expect(dueLabel('2026-08-14', today)).toEqual({ text: '残り7日', tone: 'soon' });
   });
 
   it('8日以上先は日付で出す（何日後かは押す理由にならない）', () => {

@@ -167,7 +167,7 @@ docker compose -f /root/gmo-onair/docker-compose.yml up -d app_dev
   `BOX_MAIL_INTAKE_FOLDER_ID` (本番と同じフォルダ) に落ちるので、
   **検証で取り込んだ試験用の請求書 PDF が本番のフォルダに混ざる** (DB は分かれていても BOX は分かれない)
 
-## ツール一覧 (167 種 / 25 カテゴリ / v4)
+## ツール一覧 (173 種 / 26 カテゴリ / v4)
 
 > **この一覧は手で書いています。** 実際に登録されているツールは
 > `node scripts/generate-mcp-tools.mjs` が `server/src/contexts/mcp/tools/*.ts` から
@@ -193,7 +193,9 @@ docker compose -f /root/gmo-onair/docker-compose.yml up -d app_dev
 > equipment 7（読み取り5・書き込み2。2026-08 新設。下記参照）/
 > intercompany 1（**2026年10月の事業再編で新設**。社内取引 SCS⇄GSS。下記参照）/
 > feedback-tickets 2（**2026-09 新設**。GMO ONAiR 自体への要望・不具合報告。
-> `create_feedback_ticket` は OAuth actor 専用。下記参照）
+> `create_feedback_ticket` は OAuth actor 専用。下記参照） /
+> wiki 6（読み取り4・書き込み2。**2026-09 新設**。手順書・決めごとを読む・下書きを作る。
+> **書けるのは下書きまでで、公開する口は無い**。書き込みは OAuth actor 専用。下記参照）
 >
 > **live（計時・視聴者）向けの MCP ツールはまだ無い。** 廃止決定ではなく、着手対象になった
 > ことがない（未検討）。equipment は 2026-08 に新設した。
@@ -606,6 +608,41 @@ Slack の定例投稿 (bot 化の下準備・`docs/design/v4/keep-report.md` §6
 貸出/返却の権限は HTTP 側 (`equipment.routes.ts`) と同じ: `/lendings` 系の登録・出庫・返却は
 `equipment` の editor 以上、削除は manager（`requirePermission`）。MCP 側も他カテゴリの
 書き込みツールと揃えて `equipment` の editor 以上を要求する（`gate.ts` 参照）。
+
+### Wiki (wiki — 手順書・決めごと・2026-09 新設)
+
+会社の決めごと・手順・用語を**読んでから動く**ための口（設計 [docs/design/v4/wiki.md](design/v4/wiki.md) §7-6）。
+`mail-intake` のようなスキルが、プロンプトに手書きしていた仕分け表を Wiki のページへ移せるようにするのが狙い。
+
+⚠️ **書き込みは必ず下書き。公開する口は作っていない** — 公開は人が Wiki の画面で押す
+（メール取込の「AI は起票まで・確定は人」と同じ）。`update_wiki_page` は**公開済みのページを直せない**。
+
+⚠️ **`create_wiki_page` / `update_wiki_page` は OAuth actor 専用**（静的APIキーでは 403）。
+`wiki_pages.created_by` が `users` への FK で共用 actor 名義では書けず、そもそも「誰が書いた下書きか」が
+ページの画面にそのまま出る記録なので代筆を作らない（`create_feedback_ticket` と同じ理由）。
+**静的APIキーの読み取りは `visibility='all'` のスペースの公開ページだけ**に絞られる（「その人」が居ないので
+`members` のスペースを見てよい人かを決められないため）。
+
+⚠️ **閲覧できる範囲は画面とまったく同じ**（`wiki-access.service.ts` を通す）。読めないページは
+403 ではなく **404**（存在ごと隠す・設計 §8）。下書き・`members` のスペースは検索にも出ない。
+
+| ツール | 種別 | 概要 |
+|---|---|---|
+| `search_wiki` | read | 検索。題・道（スペース ＞ 親 ＞ …）・一致した見出し・本文の抜粋・更新日を返す。2語以上は AND。`space` / `tags` / `owner_user_id` / `updated_within_days` で絞る。**出るのは公開ページだけ**。`total` は上限で切る前の数 |
+| `get_wiki_page` | read | ページ1本を **Markdown（先頭に YAML の見出し付き）**で返す。`GET /wiki/pages/:id.md` と zip の書き出しとまったく同じ形（組み立ては `wiki-md.service.ts` の1か所）。見出しの `updated` は `update_wiki_page` の `expected_updated_at` にそのまま渡す |
+| `list_wiki_pages` | read | `space` を渡すとそのスペースのツリー（id・題・親・種類・状態・更新日）を平らな配列で。**渡さないと読めるスペースの一覧**（key・名前・ページ数）。`kind='database'` の行は `query_wiki_database` で読む |
+| `query_wiki_database` | read | データベース（`kind='database'` のページ）の行を絞って返す。返すのは 題・項目の値・**本文の先頭200字**・更新日。`filters` の `item` は項目の id でも名前でもよい（is / is_not / contains / is_empty / is_not_empty / before / after）。`view` を渡すとそのビューの絞り込みと並べ替えを先に当てる |
+| `create_wiki_page` | write | ページを**下書きとして**作る。本文は Markdown の文字列（HTML は書かない — 描くのは画面）。`parent_id` にデータベースのページを渡し `props` を添えると行になる（**値は親の項目定義で検査し、合わない値は黙って落とさずエラーにする**） |
+| `update_wiki_page` | write | **下書きの**本文を置き換える（`mode: "replace"`）か末尾に足す（`mode: "append"`）。`expected_updated_at` が食い違うと **409（CONFLICT）** — 読み直して出し直す契約 |
+
+**AI を使い捨てにしない（ルート [CLAUDE.md](../CLAUDE.md) の絶対原則）**: 書き込み2本は本文と材料を
+`ai_outputs`（kind `wiki_draft`・`prompt_version` は `wiki-mcp-draft-v1`）に**全文で**残し、
+`wiki_pages.ai_output_id` から引ける。人が公開するときサーバーが `payload_snapshot` と公開した本文を
+自動比較して `ai_corrections` に差分を積む（7日窓）ので、**よく直される点が次の下書きに返る**
+（`get_ai_feedback_digest` の kind `wiki_draft`）。
+⚠️ **このカテゴリのツールの説明文（`.describe()`）は、外の AI にとってのプロンプトそのもの**なので、
+文面を直したら `wiki-write.tools.ts` の `WIKI_DRAFT_PROMPT_VERSION` を上げること
+（上げないと契約を直した効果を後から数字で言えない）。
 
 ## confirm 2段階フロー (重要操作)
 

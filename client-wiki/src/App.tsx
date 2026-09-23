@@ -11,6 +11,7 @@ import WikiEditorPage from './pages/editor/WikiEditorPage';
 import HistoryPage from './pages/history/HistoryPage';
 import TemplatesPage from './pages/templates/TemplatesPage';
 import SearchPage from './pages/search/SearchPage';
+import AskPage from './pages/ask/AskPage';
 import TransferPage from './pages/importexport/TransferPage';
 import WikiSearchGlobal from './components/search/WikiSearchGlobal';
 
@@ -27,8 +28,9 @@ function WikiNotFound() {
 }
 
 /**
- * ルート。AI に聞く（段E）と見直し・スペース管理（段F）の画面はまだ作っていないので、
+ * ルート。見直し・スペース管理（段F）の画面はまだ作っていないので、
  * **ルートも置かない** — 空の画面に着く URL を先に配らないため。
+ * 「AI に聞く」（`/ask`）は段E で作ったので置いてある。
  *
  * `WikiSearchGlobal` だけは `Routes` の外に置く。`⌘K` の窓と「最近見たもの」の
  * 記録は、画面を移っても消えずに効いている必要があるため（ログインの画面では出さない）。
@@ -57,6 +59,7 @@ export default function App() {
             <Route path="/p/:id/history" element={<HistoryPage />} />
             <Route path="/templates" element={<TemplatesPage />} />
             <Route path="/search" element={<SearchPage />} />
+            <Route path="/ask" element={<AskPage />} />
             <Route path="/transfer" element={<TransferPage />} />
             <Route path="*" element={<WikiNotFound />} />
           </Route>

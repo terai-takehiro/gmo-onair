@@ -47,7 +47,11 @@ export function NextActionInline({
 }: {
   row: Pick<ActivityLogRow,
     'id' | 'next_action' | 'next_action_date' | 'next_action_done_at' | 'next_action_auto_closed_reason'>;
-  actions: Actions;
+  /**
+   * 完了・延期の口。**未指定なら期限と本文だけを出し、ボタンは描かない**
+   * （`sales` の editor が無い人に、押すと 403 になるボタンを並べない・#727 の宿題⑤）
+   */
+  actions?: Actions;
 }) {
   const [postponing, setPostponing] = useState(false);
   const done = !!row.next_action_done_at;
@@ -81,10 +85,18 @@ export function NextActionInline({
             </span>
             <span className="truncate">{row.next_action}</span>
           </span>
-          {/* 行を開かなくても片づけられる。**押下は行の onClick に伝えない** */}
+          {/*
+            行を開かなくても片づけられる。**押下は行の onClick に伝えない**。
+
+            ⚠️ **スマホでは `min-h-tap`（44px）を付ける**（権限の確認の回で実測）。
+            `size="sm"` のままだと 32px で、指で押すと隣の「延期」や行そのものに当たる。
+            PC はマウスなので `lg:min-h-0` で元の高さに戻す（行の高さを崩さない）。
+            延期の取り消しは「×」1字にしない — 何をやめるのか読めず、ルール8の「キャンセル」とも食い違う
+          */}
+          {actions && (
           <span className="inline-flex shrink-0 items-center gap-1" onClick={(e) => e.stopPropagation()}>
             <Button
-              size="sm" variant="outline" className="px-2 text-xs"
+              size="sm" variant="outline" className="min-h-tap lg:min-h-0 px-2 text-xs"
               disabled={actions.isPending}
               onClick={() => actions.complete(row.id)}
             >
@@ -92,14 +104,15 @@ export function NextActionInline({
             </Button>
             {postponing ? (
               <>
-                <Button size="sm" variant="ghost" className="px-1.5 text-xs" onClick={() => { actions.postponeTomorrow(row.id); setPostponing(false); }}>明日</Button>
-                <Button size="sm" variant="ghost" className="px-1.5 text-xs" onClick={() => { actions.postponeWeek(row.id); setPostponing(false); }}>1週間</Button>
-                <Button size="sm" variant="ghost" className="px-1.5 text-xs" onClick={() => setPostponing(false)}>×</Button>
+                <Button size="sm" variant="ghost" className="min-h-tap lg:min-h-0 px-1.5 text-xs" onClick={() => { actions.postponeTomorrow(row.id); setPostponing(false); }}>明日</Button>
+                <Button size="sm" variant="ghost" className="min-h-tap lg:min-h-0 px-1.5 text-xs" onClick={() => { actions.postponeWeek(row.id); setPostponing(false); }}>1週間</Button>
+                <Button size="sm" variant="ghost" className="min-h-tap lg:min-h-0 px-1.5 text-xs" onClick={() => setPostponing(false)}>キャンセル</Button>
               </>
             ) : (
-              <Button size="sm" variant="outline" className="px-2 text-xs" onClick={() => setPostponing(true)}>延期</Button>
+              <Button size="sm" variant="outline" className="min-h-tap lg:min-h-0 px-2 text-xs" onClick={() => setPostponing(true)}>延期</Button>
             )}
           </span>
+          )}
         </>
       )}
     </div>
@@ -110,7 +123,8 @@ export function ActivityRows({
   rows, actions, onOpen, showHeader = true,
 }: {
   rows: ActivityLogRow[];
-  actions: Actions;
+  /** 完了・延期の口。**未指定ならボタンを出さない**（`NextActionInline` と同じ約束） */
+  actions?: Actions;
   /** 編集導線。**未指定なら行を開けない**（`sales` の editor 権限が無い一覧から渡す） */
   onOpen?: (row: ActivityLogRow) => void;
   /**

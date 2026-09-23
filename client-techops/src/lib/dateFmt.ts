@@ -34,16 +34,21 @@ export function relativeDayLabel(dateStr: string, today: string = todayStr()): s
 }
 
 /**
- * 本番日までの残り（トップの一覧の行に添える）。`今日` / `明日` / `あと3日` /
+ * 本番日までの残り（トップの一覧の行に添える）。`本日` / `明日` / `残り3日` /
  * 3週間より先は空文字（日付そのものを出しているので、遠い先の日数は読まれない）。
  * 過ぎた日は空文字（「終了」などの言葉は呼ぶ側が決める）。
+ *
+ * 言い方は営業活動記録の期限（`activityLog/dueState.ts` の `duePartsOf`）と揃える
+ * （`docs/wording.md` ルール8・9）。✕「今日」「あと3日」は口語で、
+ * 同じ「残り日数」がアプリごとに違う言葉で出る元になっていた。
+ * 見出し用の `relativeDayLabel`（「今日」「明日」＋曜日）は期限ではなく**日付の呼び名**なので対象外。
  */
 export function countdownLabel(dateStr: string, today: string = todayStr()): string {
   const diff = daysBetween(today, dateStr);
   if (diff < 0) return "";
-  if (diff === 0) return "今日";
+  if (diff === 0) return "本日";
   if (diff === 1) return "明日";
-  return diff <= 21 ? `あと${diff}日` : "";
+  return diff <= 21 ? `残り${diff}日` : "";
 }
 
 /** 'YYYY-MM-DD' → { month: '8月', day: '23' } */

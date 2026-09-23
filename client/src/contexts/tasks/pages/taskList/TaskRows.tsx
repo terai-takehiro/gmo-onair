@@ -41,7 +41,8 @@ function due(dueDate: string | null, today: string, done: boolean) {
   const text = dueDate.slice(5).replace('-', '/');
   if (done) return { text, sub: null, tone: 'text-muted-foreground' };
   if (dueDate < today) return { text, sub: '期限超過', tone: 'text-destructive' };
-  if (dueDate === today) return { text, sub: '今日が期限', tone: 'text-warning' };
+  // 当日は「本日」（`docs/wording.md` ルール8・9）。✕「今日が期限」は口語なので使わない
+  if (dueDate === today) return { text, sub: '本日', tone: 'text-warning' };
   return { text, sub: null, tone: 'text-secondary-foreground' };
 }
 

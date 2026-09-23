@@ -6,13 +6,13 @@
  *   ＋「スペース」の見出しの下にスペース（API から来る）
  *   ＋「管理」の見出しの下にテンプレート・スペース管理
  * の3かたまり。**その全部をここに書いてある**が、画面がまだ無い項目には
- * `ready: false` を立てて外している（いま外れているのは AI に聞く＝段E と
- * 見直し＝段F）。
+ * `ready: false` を立てて外している（いま外れているのは 見直し＝段F と
+ * スペース管理＝段F）。
  *
  * ⚠️ **押せるのに何も出ない項目を出さない。** ルートの無い行き先を左メニューに
- *    並べると、押した人には「壊れている」としか見えない（ホームの「AI に聞く」を
- *    段E まで出さないのと同じ判断・§6-①）。段D・段E・段F でその画面を作ったら
- *    `ready: true` に変えるだけでよい。
+ *    並べると、押した人には「壊れている」としか見えない（§6-①）。
+ *    その画面を作ったら `ready: true` に変えるだけでよい
+ *    （段D で検索、段E で「AI に聞く」をこうして出した）。
  *
  * スペースは件数も名前も DB にあるので、ここには固定の項目だけを置き、
  * スペースの区画は `buildWikiSections()` が受け取って組む（呼ぶのは AppShell）。
@@ -22,7 +22,7 @@ import type { ShellMobileTab, ShellNavItem, ShellNavSection } from '@gmo-onair/s
 import type { WikiSpace } from '@gmo-onair/shared/src/wiki/types';
 
 interface PlannedNavItem extends ShellNavItem {
-  /** その画面が既にあるか。段D まででできているのは ホーム／検索／テンプレート */
+  /** その画面が既にあるか。段E まででできているのは ホーム／検索／AI に聞く／テンプレート */
   ready: boolean;
 }
 
@@ -30,7 +30,7 @@ interface PlannedNavItem extends ShellNavItem {
 const TOP: PlannedNavItem[] = [
   { label: 'ホーム',    to: '/',       icon: LayoutDashboard, end: true, ready: true },
   { label: '検索',      to: '/search', icon: Search,                     ready: true  }, // 段D で作った
-  { label: 'AI に聞く', to: '/ask',    icon: Sparkles,                   ready: false }, // 段E
+  { label: 'AI に聞く', to: '/ask',    icon: Sparkles,                   ready: true  }, // 段E で作った
   { label: '見直し',    to: '/review', icon: ListChecks,                 ready: false }, // 段F
 ];
 

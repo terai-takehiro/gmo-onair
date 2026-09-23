@@ -1,5 +1,5 @@
 /**
- * ツールバー（PC）— **6つだけ**（設計 §6-③）
+ * ツールバー（PC）— 書き方のボタンは **6つだけ**（設計 §6-③）
  *
  * 見出し／箇条書き／チェックリスト／表／画像／リンク。
  * ここに無いもの（注意書き・折りたたみ・コード・引用・区切り線・ONAiR カード）は
@@ -8,10 +8,18 @@
  *
  * 押すと**カーソルの位置に記法を差し込みます**（行を選んでいればその行に付けます）。
  * 計算は `markdownEdits.ts`、当てるのは `WikiEditorTextarea` の `apply`。
+ *
+ * ── 右端の AI（段E・§7-1）──────────────────────────────────
+ *
+ * 「AI で整える」は**この画面の主役**（設計 §6-③）なので、書き方の6つとは
+ * 離して右端に置き、AI の色で見分けが付くようにしています。6つの数には入りません
+ * （記法を差し込むボタンではないため）。
+ * 「AI で下書きを作成」は**下書きのページでだけ**出します — 公開中のページを
+ * AI で書き換えると、いま現場が見ている手順が予告なく変わるためです。
  */
 import { useRef } from 'react';
 import {
-  CheckSquare, Heading2, Image as ImageIcon, Link2, List, Plus, Table,
+  CheckSquare, Heading2, Image as ImageIcon, Link2, List, Plus, Sparkles, Table, WandSparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -26,6 +34,11 @@ interface Props {
   onLink: () => void;
   onPickImages: (files: FileList | null) => void;
   onOpenBlocks: () => void;
+  /** AI で整える（選んだところ・無ければ本文全体） */
+  onTidy: () => void;
+  /** AI で下書きを作成（下書きのページだけ） */
+  onDraft: () => void;
+  canDraft: boolean;
 }
 
 function ToolButton({
@@ -55,7 +68,7 @@ function ToolButton({
 
 export default function WikiEditorToolbar({
   disabled, uploading, onHeading, onBullet, onCheck, onTable, onLink,
-  onPickImages, onOpenBlocks,
+  onPickImages, onOpenBlocks, onTidy, onDraft, canDraft,
 }: Props) {
   const fileRef = useRef<HTMLInputElement | null>(null);
 
@@ -79,6 +92,24 @@ export default function WikiEditorToolbar({
       <ToolButton label="その他のブロック" icon={Plus} onClick={onOpenBlocks} disabled={disabled} />
 
       <span className="flex-1" />
+
+      {canDraft && (
+        // 1280px 未満は字が隠れてアイコンだけになるので、「整える」とは別の形にする
+        <ToolButton label="AI で下書きを作成" icon={WandSparkles} onClick={onDraft} disabled={disabled} />
+      )}
+
+      <button
+        type="button"
+        onClick={onTidy}
+        disabled={disabled}
+        className={cn(
+          'inline-flex h-9 shrink-0 items-center gap-1.5 rounded-control border border-ai-border bg-ai-surface px-2.5 text-sub font-bold text-ai',
+          'hover:bg-ai-surface/70 disabled:pointer-events-none disabled:opacity-50',
+        )}
+      >
+        <Sparkles className="h-4 w-4 shrink-0" aria-hidden />
+        AI で整える
+      </button>
 
       {/* 画像を選ぶところ。見せないで、上のボタンから開く */}
       <input

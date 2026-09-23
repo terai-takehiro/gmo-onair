@@ -159,7 +159,7 @@ export default function HoldListPage() {
         />
       ) : isMobile ? (
         /*
-          **スマホは縦に積む**（M10）。PC の行だと「決める」160px と「あと」72px で
+          **スマホは縦に積む**（M10）。PC の行だと「決める」160px と「残り」72px で
           名前が 150px しか残らず、`検証E 仮…` としか読めませんでした
           （＝何の予約か分からないまま「本予約にする」を押させる形）。
         */
@@ -176,7 +176,8 @@ export default function HoldListPage() {
       ) : (
         <div className="flex flex-col">
           <RowHeader className="hidden sm:flex">
-            <RowSlot w={72}>あと</RowSlot>
+            {/* 列名は「残り」（`leftLabel` の「残りN日」「本日」「N日超過」を並べる列。✕「あと」は口語） */}
+            <RowSlot w={72}>残り</RowSlot>
             <RowMain>予定 ／ 部屋</RowMain>
             <RowSlot w={96}>本番日</RowSlot>
             <RowSlot w={160}>{canEdit ? '決める' : ''}</RowSlot>
@@ -188,7 +189,7 @@ export default function HoldListPage() {
                 幅は `TableBadge` の枠 (7段の 72px) に持たせる。以前は
                 `RowSlot` の中に `w={null}` で置き、バッジ側に幅いっぱいの指定を
                 していたが、枠 (data-badge-slot) が中身の自然幅のままになり、
-                「あと12日」のような5字超の行だけ右端がずれていた
+                「残り12日」のような5字超の行だけ右端がずれていた
                 (verify-ui.mjs「バッジの列がそろう」で実測)
               */}
               <TableBadge label={leftLabel(b.left)} w={72} className={leftTone(b.left)} />
@@ -247,7 +248,7 @@ export default function HoldListPage() {
 
       <p className="text-note text-muted-foreground">
         並びは<strong className="font-bold">本番日までの残り日数順</strong>です（日付順ではありません）。
-        本番日を過ぎてしまった仮押さえが先頭に出ます — 押さえたまま忘れられていた予約がそれです。
+        本番日を超過した仮押さえが先頭に出ます — 押さえたまま忘れられていた予約がそれです。
       </p>
     </div>
   );

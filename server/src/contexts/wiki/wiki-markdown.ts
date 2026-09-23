@@ -104,3 +104,26 @@ export function extractPageLinks(md: string): string[] {
   }
   return [...out];
 }
+
+/* ── 足りないページ（§7-2・段E）─────────────────────────────── */
+
+/**
+ * 同じ質問を1件にまとめる鍵（`wiki_ai_gaps.normalized` は UNIQUE）。
+ *
+ * ⚠️ **`shared/src/wiki/markdown.ts` の `normalizeQuestion` が正です。**
+ * 一字一句そろえてあります。片方だけ直すと、画面が「同じ質問」と見せている
+ * ものがサーバーでは別の行になり、**回数が数えられなくなります**。
+ *
+ * ⚠️ **強く丸めすぎない。** 「配信の設定は？」と「収録の設定は？」が
+ * 同じ鍵になると、別の質問が1件に潰れて回数が嘘になります。
+ * 落とすのは 空白・記号・丁寧語の語尾だけにします。
+ */
+export function normalizeQuestion(q: string): string {
+  return q
+    .trim()
+    .toLowerCase()
+    .replace(/[、。．，！？!?・：:；;（）()「」『』【】[\]"'`]/g, '')
+    .replace(/(ですか|でしょうか|ますか|かな|かね)$/u, '')
+    .replace(/\s+/g, '')
+    .slice(0, 200);
+}

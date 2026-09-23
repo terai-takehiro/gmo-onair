@@ -58,6 +58,7 @@ export function dueLabel(due: string | null, today: string): string | null {
   if (!due) return null;
   const short = due.slice(5).replace('-', '/');
   if (due < today) return `${short} 超過`;
-  if (due === today) return `${short} 今日`;
+  // 当日は「本日」（`docs/wording.md` ルール8・9。✕「今日」は口語で、期限の言い方が画面ごとに割れる）
+  if (due === today) return `${short} 本日`;
   return short;
 }

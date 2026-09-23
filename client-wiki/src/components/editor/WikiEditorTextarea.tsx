@@ -34,6 +34,14 @@ export interface WikiEditorTextareaHandle {
   apply: (edit: Edit) => void;
   /** 一覧を開いた引き金の `/` を消してから差し込む */
   applyAfterSlash: (edit: Edit, slashAt: number) => void;
+  /**
+   * いまの本文と選んでいる範囲を**その場で**読む（「AI で整える」が使う）。
+   *
+   * ⚠️ 画面が覚えている選択（`onSelectionChange`）は、本文から焦点が外れた時点で
+   * 空になります。ツールバーのボタンを押すと必ず外れるので、**押した瞬間に
+   * ここで読み直します**（差し込みの `apply` が DOM から読むのと同じ理由）。
+   */
+  read: () => EditState | null;
   focus: () => void;
 }
 
@@ -90,6 +98,7 @@ const WikiEditorTextarea = forwardRef<WikiEditorTextareaHandle, Props>(function 
   useImperativeHandle(ref, () => ({
     apply: (edit) => runEdit(edit),
     applyAfterSlash: (edit, slashAt) => runEdit(edit, (s) => removeSlash(s, slashAt)),
+    read: () => (elRef.current ? stateOf(elRef.current) : null),
     focus: () => elRef.current?.focus(),
   }), [runEdit]);
 

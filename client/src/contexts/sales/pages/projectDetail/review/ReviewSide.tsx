@@ -169,7 +169,7 @@ export function ReviewSide({
         ) : (
           <div className="flex flex-col">
             <Stat label="終わったタスク" value={`${taskDone} / ${taskTotal}`} />
-            <Stat label="期限を過ぎたまま" value={String(taskLate)} bad={taskLate > 0} />
+            <Stat label="期限超過のまま" value={String(taskLate)} bad={taskLate > 0} />
             {eventStart && <Stat label="実施日" value={eventStart} />}
           </div>
         )}

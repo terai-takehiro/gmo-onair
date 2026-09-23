@@ -184,6 +184,94 @@ describe('押せるのに 403 にしない', () => {
     expect(tiles).not.toMatch(/hasPermission\(['"]qsheet['"],\s*['"]manager['"]\)/);
   });
 
+  it('営業活動記録・やり取りの書く操作は sales の editor に、記録の削除は manager にだけ出す（#727 の宿題⑤）', () => {
+    // ⚠️ #727 で増えた操作（次のアクションの 完了 / 延期 / 編集 / 削除・本文の編集）を
+    // 閲覧（reader）の人で実際に開いて数えたところ、**営業活動記録の案件別・時系列・
+    // 予定の帯の全行に「完了」「延期」が出て、押すと必ず 403** だった
+    // （`useNextActionActions` の口を権限を見ずに全行へ渡していた）。
+    // 案件詳細のやり取りでも、書く枠を押せない状態で出していた。
+    // どちらも「出す条件」と「サーバーが要求するもの」が別ファイルにあるので、両方を見る
+
+    // ── サーバー: 読むのは sales、書くのは editor、記録ごとの削除は manager ──
+    const routes = read('server', 'src', 'contexts', 'sales', 'routes', 'activity-logs.routes.ts');
+    expect(routes).toContain("router.use(requireAuth, requirePermission('sales'))");
+    for (const re of [
+      /router\.post\('\/', requirePermission\('sales', 'editor'\)/,
+      /router\.put\('\/:id', requirePermission\('sales', 'editor'\)/,
+      /router\.post\('\/:id\/complete-next-action', requirePermission\('sales', 'editor'\)/,
+      /router\.post\('\/:id\/postpone-next-action', requirePermission\('sales', 'editor'\)/,
+      /router\.post\('\/:id\/format-redo', requirePermission\('sales', 'editor'\)/,
+      // 緩めたら画面の `canDelete`（manager）も見直す
+      /router\.delete\('\/:id', requirePermission\('sales', 'manager'\)/,
+    ]) expect(routes).toMatch(re);
+
+    // ── 営業活動記録（/sales/activity-logs）──
+    const dir = ['client', 'src', 'contexts', 'sales', 'pages'] as const;
+    const page = read(...dir, 'ActivityLogPage.tsx');
+    expect(page).toMatch(/canEdit = hasPermission\('sales', 'editor'\)/);
+    expect(page).toMatch(/canDelete = hasPermission\('sales', 'manager'\)/);
+    // 「活動を記録」は editor にだけ
+    expect(page).toMatch(/canEdit \? \(\s*<Button onClick=\{\(\) => setEditing\('new'\)\}>/);
+
+    const tab = read(...dir, 'activityLog', 'LogTab.tsx');
+    // 完了・延期の口は editor にだけ渡す。**フックの返りをそのまま渡す形に戻さない**
+    expect(tab).toMatch(/const actions = canEdit \? allActions : undefined;/);
+    expect(tab).not.toMatch(/actions=\{allActions\}/);
+    // 編集（案件別）・行を開く（時系列）も editor にだけ
+    expect(tab).toMatch(/onEdit=\{canEdit \? onEditId : undefined\}/);
+    expect(tab).toMatch(/onOpen=\{canEdit \? onOpen : undefined\}/);
+
+    // 部品の約束: **口を渡されなければボタンを描かない**（3か所とも）
+    const byProject = read(...dir, 'activityLog', 'ByProjectRows.tsx');
+    expect(byProject).toMatch(/\{actions && \(\s*<RowSlot w=\{200\}>\s*<NextActionButtons/);
+    expect(byProject).toMatch(/\{actions && <RowSlot w=\{200\}>操作<\/RowSlot>\}/);
+    const rows = read(...dir, 'activityLog', 'ActivityRows.tsx');
+    expect(rows).toMatch(/\{actions && \(\s*<span className="inline-flex shrink-0 items-center gap-1" onClick/);
+    const upcoming = read(...dir, 'activityLog', 'UpcomingPanel.tsx');
+    expect(upcoming).toMatch(/\{actions && \(\s*<Button/);
+    // 記録ごとの削除（DELETE = manager）はダイアログの中だけで、`canDelete` を見る
+    const dialog = read(...dir, 'activityLog', 'ActivityLogDialog.tsx');
+    expect(dialog).toMatch(/\{editing && canDelete \? \(/);
+
+    // ── 案件詳細 → やり取り（/sales/projects/:id/thread）──
+    const thread = read(...dir, 'projectDetail', 'ThreadTab.tsx');
+    expect(thread).toMatch(/canEdit = hasPermission\('sales', 'editor'\)/);
+    // 書く枠は editor にだけ（押せない枠を reader に並べない）
+    expect(thread).toMatch(/\{canEdit && \(\s*<ComposeBox/);
+    const card = read(...dir, 'projectDetail', 'thread', 'ThreadCard.tsx');
+    expect(card).toMatch(/\{canEdit && edit && \(\s*<NextActionActions/);
+    // 本文の「編集」も同じ条件（次のアクションの操作と合わせて2か所）
+    expect(card.match(/\{canEdit && edit && \(/g)?.length).toBeGreaterThanOrEqual(2);
+    expect(card).toMatch(/\{canEdit && aiFormatted && onRedo && \(/);
+    // やり取りの「次のアクションを削除」は **PUT（editor）で消す**。記録ごとの
+    // `DELETE /activity-logs/:id`（manager）を呼ぶ形に変えると editor が 403 になる
+    const threadEdit = read(...dir, 'projectDetail', 'thread', 'useThreadEdit.ts');
+    expect(threadEdit).not.toMatch(/api\.delete\(/);
+    expect(threadEdit).toMatch(/api\.put\(`\/activity-logs\/\$\{p\.a\.id\}`/);
+  });
+
+  it('お客様詳細の完了・延期と、案件詳細のステージの帯は sales の editor にだけ押せる', () => {
+    // #727 の宿題⑤の確認で見つけた残り2か所（統合時に修正）。
+    // ①お客様詳細の「やり取りの履歴」は営業活動記録と同じ `NextActionInline` を使っていて、
+    //   口を権限を見ずに渡していたので reader の全行に「完了」「延期」が出ていた
+    // ②案件詳細のステージの帯は reader にも押せる状態で出ていて、確認ダイアログの先で 403
+    const dir = ['client', 'src', 'contexts', 'sales', 'pages'] as const;
+    const customer = read(...dir, 'CustomerDetailPage.tsx');
+    expect(customer).toMatch(/canEdit = hasPermission\('sales', 'editor'\)/);
+    expect(customer).toMatch(/actions=\{canEdit \? actions : undefined\}/);
+
+    const header = read(...dir, 'projectDetail', 'DetailHeader.tsx');
+    expect(header).toMatch(/canEdit = hasPermission\('sales', 'editor'\)/);
+    // 帯は表示も兼ねるので隠さず、押せなくする（通常のステージ・終了の2列とも）
+    expect(header.match(/disabled=\{!canEdit\}/g)?.length).toBe(2);
+    expect(header.match(/if \(!on && canEdit\) onChangeStage/g)?.length).toBe(2);
+
+    const routes = read('server', 'src', 'contexts', 'sales', 'routes', 'projects.routes.ts');
+    expect(routes).toMatch(/router\.patch\('\/:id\/stage', requirePermission\('sales', 'editor'\)/);
+    const logs = read('server', 'src', 'contexts', 'sales', 'routes', 'activity-logs.routes.ts');
+    expect(logs).toMatch(/router\.post\('\/:id\/complete-next-action', requirePermission\('sales', 'editor'\)/);
+  });
+
   it('仮押さえの「落とす」は manager にだけ出す（PC もスマホも）', () => {
     // `DELETE /studios/bookings/:id` は manager を要求する。**確定にするほうは editor**
     // なので、1つの `canEdit` でまとめると editor に「落とす」が出て 403 になる

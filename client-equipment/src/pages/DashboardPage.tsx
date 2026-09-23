@@ -47,7 +47,7 @@ import { buildKpiCells, type KpiCell } from './dashboard/kpiCells';
 import { KpiRail } from './dashboard/KpiRail';
 import { LendingCards } from './dashboard/LendingCards';
 import { MaintenanceCards } from './dashboard/MaintenanceCards';
-import { dueIn, md } from './dashboard/dueIn';
+import { dueBadgeLabel, dueIn, md } from './dashboard/dueIn';
 import type { Stats } from './dashboard/types';
 
 /** 持ち出し・返却の1つ。**0 も出す** — 隠すと「読み込み中」に見える */
@@ -164,7 +164,7 @@ export default function DashboardPage() {
               <h2 id="eq-overdue" className="shrink-0 text-h2">返却待ち</h2>
               {/* 見出しは折らない。狭いときに縮むのは説明のほう（375px で
                   「返してもら／う」と2行に折れていた） */}
-              <span className="truncate text-sub text-muted-foreground">返却予定日を過ぎているもの・近いもの</span>
+              <span className="truncate text-sub text-muted-foreground">返却期限超過・返却日の近いもの</span>
               <div className="flex-1" />
               <Link to="/equipment/lendings" className="v4-tap shrink-0 text-sub text-primary hover:underline">すべて見る</Link>
             </div>
@@ -194,7 +194,7 @@ export default function DashboardPage() {
                       <RowSlot w={96}>
                         {days === null ? null : (
                           <TableBadge
-                            label={late ? `${-days}日 超過` : days === 0 ? '本日返却' : `あと${days}日`}
+                            label={dueBadgeLabel(days)}
                             w={null}
                             className={late
                               ? 'bg-destructive-surface text-destructive border-transparent'

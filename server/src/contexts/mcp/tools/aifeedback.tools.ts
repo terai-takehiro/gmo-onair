@@ -10,6 +10,10 @@ import { MINUTES_KIND } from '../../sales/services/minutes.service';
 import { FINANCE_DOC_INTAKE_KIND, INQUIRY_INTAKE_KIND } from '../../dailyops/services/inbox-ai-feedback.service';
 import { GPM_PROJECT_DRAFT_KIND, GPM_TASK_DRAFT_KIND } from '../../gpm/services/gpm-ai-feedback.service';
 import { QSHEET_AI_KINDS, isQsheetAiKind } from '../../qsheet/ai/kinds';
+import {
+  WIKI_AI_KINDS, WIKI_ANSWER_KIND, WIKI_DRAFT_KIND, WIKI_REWRITE_KIND, type WikiAiKind,
+} from '../../wiki/services/wiki-ai.constants';
+import { getWikiAiDigest } from '../../wiki/services/wiki-ai-digest.service';
 import { ok, runTool, actorContext } from '../helpers';
 import { actorHasPermission, type ToolPermission } from '../gate';
 
@@ -52,6 +56,11 @@ const KNOWN_KINDS = [
   GPM_PROJECT_DRAFT_KIND,
   GPM_TASK_DRAFT_KIND,
   ...QSHEET_AI_KINDS,
+  // Wiki（2026-09 新設・設計 `docs/design/v4/wiki.md` §7-3 条件4）。
+  // 「AI に聞く」の的外れの多さ・出典が開かれない傾向と、下書きの直され方をここから読む。
+  // **足りないページ（答えられなかった質問）の件数も advice に載る** — Wiki では
+  // プロンプトを直すより、そのページを書くほうが効く（§7-2）。
+  ...WIKI_AI_KINDS,
 ] as const;
 
 /**
@@ -96,6 +105,16 @@ const KIND_PERMISSION: Record<string, ToolPermission> = {
   // 取り込んだ情報・受領書類。**書く側の表（`gate.ts`）と同じモジュールにする**
   [INQUIRY_INTAKE_KIND]: { module: 'dailyops', level: 'reader' },
   [FINANCE_DOC_INTAKE_KIND]: { module: ['dailyops', 'sales'], level: 'reader' },
+  /*
+   * Wiki（設計 `docs/design/v4/wiki.md` §7-3 条件4・§8）。**書く側と同じ区画**に揃える
+   * （`gate.ts` の `search_wiki` … が `wiki` の reader、`create_wiki_page` が editor）。
+   *
+   * ⚠️ 質問の文・下書きの本文・整える前のメモは、**読めないスペースの中身を含みうる**
+   * （人が打った文なので何が書いてあるか分からない）。だから集計値も reader 未満には出さない。
+   */
+  [WIKI_ANSWER_KIND]: { module: 'wiki', level: 'reader' },
+  [WIKI_DRAFT_KIND]: { module: 'wiki', level: 'reader' },
+  [WIKI_REWRITE_KIND]: { module: 'wiki', level: 'reader' },
 };
 
 /**
@@ -141,6 +160,15 @@ async function shouldDegradeQsheet(kind: string): Promise<boolean> {
   return !(perm?.access_level === 'manager' || perm?.access_level === 'owner');
 }
 
+/**
+ * Wiki の3 kind か（設計 `docs/design/v4/wiki.md` §7-3 条件4）。
+ *
+ * ⚠️ **文字列を書き写さない** — `WIKI_AI_KINDS` が正で、名前を変えた日に
+ * ここだけが黙って古くならないようにする（`KNOWN_KINDS` と同じ理由）。
+ */
+const isWikiKind = (kind: string): kind is WikiAiKind =>
+  (WIKI_AI_KINDS as readonly string[]).includes(kind);
+
 function degrade(digest: FeedbackDigest): FeedbackDigest {
   return {
     ...digest,
@@ -178,6 +206,15 @@ export function registerAiFeedbackTools(server: McpServer): void {
         '(チケット / 案件 / ストック / 見送り) と見送り率。**見送り率が高いなら拾いすぎ。** ' +
         'qsheet 系 kind (event_plan_draft / script_outline_draft / script_line_draft) は ' +
         '`recent_examples` の閲覧に qsheet の manager 以上を要求する (無ければ集計値のみ)。' +
+        'wiki 系 kind (wiki_answer / wiki_draft / wiki_rewrite) は Wiki 専用の集計を返す。' +
+        '`answer` は出典が開かれた率・「ページにする」に進んだ率・7日以内の再質問率・3値の評価、' +
+        '`draft` は7日以内に公開された率と公開後30日の閲覧数・他の人が直した回数、' +
+        '`rewrite` は整えた結果が置き換えられた率。' +
+        '`gaps` は**まだ Wiki に書かれていないために答えられなかった質問**の件数と最多の質問で、' +
+        '**Wiki では知識そのものがページなので、そのページを書くことが最大の改善**になる ' +
+        '(プロンプトを直すより先に、足りないページを書き起こすこと)。' +
+        'wiki 系は `recent_examples` を返さない (人が直した本文には閲覧範囲の限られたスペースの ' +
+        '中身が混ざりうるため、誰に対しても出さない)。' +
         'segment_key (制作資料のみ) で案件種別×拠点を絞れる (例 type:ceremony|loc:yoga)。' +
         '式典と配信では尺の傾向が逆になるため、絞れるときは絞ったほうがよい ' +
         '(母数が10件未満なら自動で全社集計に落ちる)。source (制作資料のみ) は ' +
@@ -196,7 +233,10 @@ export function registerAiFeedbackTools(server: McpServer): void {
             'finance_doc_intake (record_finance_doc で取り込んだ書類) / ' +
             'event_plan_draft・script_outline_draft・script_line_draft (制作資料の AI 提案。' +
             'script_outline_draft は outline、script_line_draft は line、production_chat は chat の' +
-            '追加項目が付く)'
+            '追加項目が付く) / ' +
+            'wiki_answer・wiki_draft・wiki_rewrite (Wiki の AI。順に「AI に聞く」「AI で下書きを作る」' +
+            '「AI で整える」。**Wiki のページを書く・直す前にこれを読む**。wiki_answer には' +
+            '「答えられなかった質問」の件数 (gaps) が付き、そこが Wiki の穴そのもの)'
           ),
         window_days: z
           .number()
@@ -221,6 +261,18 @@ export function registerAiFeedbackTools(server: McpServer): void {
         const kind = args.kind ?? 'estimate_draft';
         // **kind を見てから断る**（ツール名だけのゲートでは足りない。上の注意書き）
         await assertKindReadable(kind);
+        /*
+         * Wiki は**専用の集計**（`getWikiAiDigest`）を返す。共通の集計に
+         * 出典が開かれた率・再質問率・公開まで進んだ率・足りないページの件数を
+         * 足したもので、**新しい集計はここに書かない**（同じ数字を2か所で作ると、
+         * 片方を直した日に食い違う）。
+         *
+         * ⚠️ **`recent_examples` は最初から入っていない。** 人が直した before / after には
+         * 読めないスペースの本文が混ざりえるため、Wiki の集計は実例を返さない作りに
+         * してある（`wiki-ai-digest.service.ts` の注記・§8）。qsheet のように
+         * manager で degrade するのではなく、**誰に対しても出さない**。
+         */
+        if (isWikiKind(kind)) return ok(await getWikiAiDigest(kind, args.window_days ?? 90));
         const digest = await getFeedbackDigest(kind, args.window_days ?? 90, {
           segmentKey: args.segment_key, source: args.source,
         });

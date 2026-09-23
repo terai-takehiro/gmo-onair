@@ -20,23 +20,41 @@
  * **サーバーが受け取れる絞り込みがそもそも違います**。片方にしか効かない
  * 絞り込みを両方に出すと「押しても何も起きない」欄ができるので、
  * 並びごとに出す欄を変えています（期限のチップは案件別だけ）。
+ * **担当者（`user_id`）だけは両方の口が受け取る**ので、両方に出します。
+ *
+ * ── 期限の区分と担当者は URL に持つ（PR #727 の宿題②）───────────
+ *
+ * `?due=` / `?user=`。読み書きは `logParams.ts` の純関数を通す（試験で固定）。
+ * 検索語・種別・入力元・並び順はローカル state のまま — 打鍵のたびに履歴を
+ * 書き換えると重く、共有したい「絞り込みの形」は区分と担当者で足りるため。
+ *
+ * ── チップの数字（PR #727 の宿題①）──────────────────────────
+ *
+ * `byProject.data.summary`（`due` を無視して数えた全区分の件数）を読む。
+ * 区分ごとに問い合わせ直す旧 `useDueCounts` はやめた（`byProject.ts` の末尾）。
  */
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import api from '@/lib/api';
+import { useAuth } from '@/contexts/platform/AuthContext';
 import { useDebounced } from '@gmo-onair/shared/src/client/hooks/useDebounced';
 import { EmptyState, NoSearchResults, Delayed, SkeletonRows, ErrorPanel } from '@gmo-onair/shared/src/client/states';
 import { Pagination } from '@gmo-onair/shared/src/client/ui/pagination';
-import { FilterChips } from '@gmo-onair/shared/src/client/ui/filterChips';
-import { Input } from '@/components/ui/input';
 import { TimelineGroups } from './TimelineGroups';
 import { ByProjectRows } from './ByProjectRows';
 import { UpcomingPanel } from './UpcomingPanel';
-import { DesktopFilterBar, ActivityMobileFilters, type OriginFilter, type SortKey } from './Filters';
+import {
+  DesktopFilterBar, ActivityMobileFilters, ProjectFilterBar, type OriginFilter, type SortKey,
+} from './Filters';
 import { useNextActionActions } from './useNextActionActions';
-import { useByProject, useDueCounts } from './byProject';
-import { DUE_FILTERS, DUE_LABEL, todayStr, type DueFilter } from './dueState';
+import { useByProject } from './byProject';
+import { DueChips } from './DueChips';
+import { DUE_LABEL, todayStr, type DueFilter } from './dueState';
+import {
+  readDue, readUser, withDue, withUser, withoutFilters, assigneeOptions,
+} from './logParams';
+import { useUsersList } from './useAssignees';
 import type { ActivityLogRow } from './types';
 
 export type LogView = 'project' | 'timeline';
@@ -66,39 +84,64 @@ export function LogTab({
 }) {
   const today = todayStr();
   /**
-   * 完了・延期を押したら**案件別の一覧とチップの件数も落とす**。
+   * 完了・延期を押したら**案件別の一覧（とその返りに乗ったチップの件数）も落とす**。
    * 既定の鍵（`activity-logs` / `activity-upcoming`）だけだと、
-   * 片づけたのにチップの「期限超過 3」が 3 のまま残る
+   * 完了にしたのにチップの「期限超過 3件」が 3 のまま残る。
+   * 件数は一覧と同じ返り（`summary`）に乗っているので、鍵はこれ1つで足りる
    */
-  const actions = useNextActionActions([['activity-by-project'], ['activity-by-project-counts']]);
+  const allActions = useNextActionActions([['activity-by-project']]);
+  /*
+    ⚠️ **完了・延期は `sales` の editor にだけ渡す**（#727 の宿題⑤・実ブラウザで確認）。
+    サーバーは `complete-next-action` / `postpone-next-action` に editor を要求するのに、
+    以前はこの口を権限を見ずに全行へ渡していたので、**閲覧（reader）の人にも
+    案件別・時系列・予定の帯の全行に「完了」「延期」が出て、押すと必ず 403** だった
+    （375px で数えて、reader に案件別9行・時系列12行）。
+    **渡さない＝ボタンを描かない**、を部品側の約束にしてある（`actions?` を省略可にした）。
+    フックそのものは常に呼ぶ（条件つきで呼ぶと React のフックの順番が崩れる）。
+    `shared/tests/clickable403.test.ts` がこの形を見ている
+  */
+  const actions = canEdit ? allActions : undefined;
+  const { currentUser } = useAuth();
 
   const [search, setSearch] = useState('');
   // 遅らせるのは**問い合わせに渡す値だけ**で、入力欄は `search`（即時）のまま
   const appliedSearch = useDebounced(search.trim(), 300);
-  const [due, setDue] = useState<DueFilter>('all');
+  // 期限の区分と担当者は URL が正（`?due=` / `?user=`）。既定のときは引数を消す
+  const [urlParams, setUrlParams] = useSearchParams();
+  const due = readDue(urlParams);
+  const userFilter = readUser(urlParams);
   const [typeFilter, setTypeFilter] = useState('');
   const [originFilter, setOriginFilter] = useState<OriginFilter>('');
   const [sort, setSort] = useState<SortKey>(initialSort);
   const [page, setPage] = useState(1);
   const reset = () => setPage(1);
+  // ⚠️ 関数で書く（`urlParams` を閉じ込めると、同じ描画の中で先に書いた
+  // `?view=` などを古い値で上書きする）。履歴は積まない（`?tab=` と同じ replace）
+  const setDue = (k: DueFilter) => { setUrlParams((prev) => withDue(prev, k), { replace: true }); reset(); };
+  const setUserFilter = (id: string) => { setUrlParams((prev) => withUser(prev, id), { replace: true }); reset(); };
+
+  const usersList = useUsersList(true);
+  const assignees = assigneeOptions(usersList.data?.data ?? [], currentUser?.id, userFilter);
+  const userLabel = assignees.find((o) => o.value === userFilter)?.label ?? '';
 
   // ── 案件別 ────────────────────────────────────────────────
   const byProject = useByProject(
-    { due, search: appliedSearch, userId: '', page },
+    { due, search: appliedSearch, userId: userFilter, page },
     view === 'project',
   );
-  const counts = useDueCounts({ search: appliedSearch, userId: '' }, view === 'project');
+  const summary = byProject.data?.summary;
   const groups = byProject.data?.data ?? [];
 
   // ── 時系列 ────────────────────────────────────────────────
   const timeline = useQuery<ActivityLogListResponse>({
-    queryKey: ['activity-logs', page, appliedSearch, typeFilter, originFilter, sort],
+    queryKey: ['activity-logs', page, appliedSearch, typeFilter, originFilter, sort, userFilter],
     // ⚠️ `signal` を渡す（渡さないと、絞り込みを変えても前の重い通信が走り続ける）
     queryFn: async ({ signal }) => {
       const params: Record<string, string | number> = { page, limit: 20 };
       if (appliedSearch) params.search = appliedSearch;
       if (typeFilter) params.activity_type = typeFilter;
       if (originFilter) params.origin = originFilter;
+      if (userFilter) params.user_id = userFilter;
       if (sort !== 'date') params.sort = sort;
       return (await api.get('/activity-logs', { params, signal })).data;
     },
@@ -120,9 +163,13 @@ export function LogTab({
     typeFilter, onTypeFilter: (v: string) => { setTypeFilter(v); reset(); },
     sort, onSort: (v: SortKey) => { setSort(v); reset(); },
     originFilter, onOriginFilter: (v: OriginFilter) => { setOriginFilter(v); reset(); },
+    userFilter, onUserFilter: setUserFilter,
+    assignees,
   };
   const clearAll = () => {
-    setSearch(''); setTypeFilter(''); setOriginFilter(''); setSort('date'); setDue('all'); reset();
+    setSearch(''); setTypeFilter(''); setOriginFilter(''); setSort('date');
+    setUrlParams((prev) => withoutFilters(prev), { replace: true });
+    reset();
   };
 
   /*
@@ -139,7 +186,7 @@ export function LogTab({
   const refetch = () => { if (isProject) byProject.refetch(); else timeline.refetch(); };
 
   const empty = isProject ? groups.length === 0 : rows.length === 0;
-  const filtered = !!appliedSearch || (view === 'project'
+  const filtered = !!appliedSearch || !!userFilter || (view === 'project'
     ? due !== 'all'
     : !!typeFilter || !!originFilter);
 
@@ -165,30 +212,18 @@ export function LogTab({
       {view === 'project' ? (
         <>
           {/*
-            期限のチップ。**押す前に 0 件だと分かる**ように件数を必ず添える
-            （数えているのは案件の数＝押した先に並ぶまとまりの数）。
+            期限のチップ。**押す前に 0 件だと分かる**ように件数を必ず添える。
+            大きい数字＝次のアクションの件数、小さい数字＝案件の数（`DueChips.tsx`）。
             ⚠️ 本日+8 以降のやることはどのチップにも入らない（「すべて」には出る）
           */}
-          <FilterChips
-            items={DUE_FILTERS.map((k) => ({
-              key: k, label: DUE_LABEL[k], count: counts.data ? counts.data[k] ?? 0 : null,
-            }))}
-            value={due}
-            onChange={(k) => { setDue(k); reset(); }}
-            label="期限で絞り込む"
-            className="max-w-full"
+          <DueChips value={due} onChange={setDue} summary={summary} />
+          <ProjectFilterBar
+            search={search}
+            onSearch={filterProps.onSearch}
+            userFilter={userFilter}
+            onUserFilter={setUserFilter}
+            assignees={assignees}
           />
-          {/* 検索は畳まない（探すのは絞り込みではなく目的そのもの） */}
-          <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden="true" />
-            <Input
-              placeholder="案件名・クライアント名・件名で検索"
-              className="h-10 pl-9 sm:h-9"
-              value={search}
-              onChange={(e) => { setSearch(e.target.value); reset(); }}
-              aria-label="案件を検索"
-            />
-          </div>
         </>
       ) : (
         <>
@@ -218,6 +253,7 @@ export function LogTab({
             keyword={appliedSearch}
             activeFilters={[
               view === 'project' && due !== 'all' ? `期限: ${DUE_LABEL[due]}` : '',
+              userFilter ? `記録者: ${userLabel}` : '',
               view === 'timeline' && typeFilter ? '種別で絞り込み中' : '',
               view === 'timeline' && originFilter ? `入力元: ${originFilter === 'ai' ? 'AI作成' : '手入力'}` : '',
             ].filter(Boolean)}

@@ -16,7 +16,8 @@ export function TimelineSection({
   items, actions, mobile, onOpenProject,
 }: {
   items: CustomerActivity[];
-  actions: ReturnType<typeof useNextActionActions>;
+  /** 完了・延期の口。**未指定ならボタンを出さない**（`sales` の editor が無い人） */
+  actions?: ReturnType<typeof useNextActionActions>;
   mobile: boolean;
   onOpenProject: (projectId: string) => void;
 }) {

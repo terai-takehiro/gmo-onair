@@ -63,7 +63,8 @@ export default function HomePage() {
   const ts = tasks.data;
   const taskMarks: Mark[] = [];
   if (ts?.overdue) taskMarks.push({ label: `期限超過 ${ts.overdue}`, tone: MARK_TONE.urgent });
-  if (ts?.due_today) taskMarks.push({ label: `今日が期限 ${ts.due_today}`, tone: MARK_TONE.soon });
+  // 当日が期限の件数は「本日 N」（`docs/wording.md` ルール8・9。✕「今日が期限 N」は口語）
+  if (ts?.due_today) taskMarks.push({ label: `本日 ${ts.due_today}`, tone: MARK_TONE.soon });
   if (ts?.unanswered_delegations) taskMarks.push({ label: `未返答の依頼 ${ts.unanswered_delegations}`, tone: MARK_TONE.plain });
 
   // 今後の回。人数は受付ページと同じ `headOf()` で数える (定義を1つにする)

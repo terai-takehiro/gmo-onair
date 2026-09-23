@@ -47,6 +47,7 @@ const CATEGORY_LABELS = {
   aifeedback: "AI の改善（修正差分の還流）",
   production: "制作技術支援（進行台本・スケジュール表）",
   equipment: "機材管理",
+  wiki: "Wiki（手順書・決めごと）",
 };
 // カテゴリ表示順 (未知は末尾)
 const CATEGORY_ORDER = Object.keys(CATEGORY_LABELS);

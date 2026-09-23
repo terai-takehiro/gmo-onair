@@ -98,7 +98,13 @@ export default function CustomerDetailPage() {
           canEdit={canEdit}
           onRecordActivity={() => setFormOpen(true)}
           onOpenProject={openProject}
-          actions={actions}
+          /*
+            ⚠️ 完了・延期は `sales` の editor にだけ渡す（#727 の宿題⑤の統合時に追加）。
+            サーバーは両方に editor を要求するので、閲覧（reader）の人に渡すと
+            やり取りの履歴の全行に「完了」「延期」が並び、押すと必ず 403 になる。
+            営業活動記録（`activityLog/LogTab.tsx`）と同じく「渡さない＝描かない」
+          */
+          actions={canEdit ? actions : undefined}
         />
       )}
 
@@ -123,7 +129,8 @@ function CustomerDetailBody({
   canEdit: boolean;
   onRecordActivity: () => void;
   onOpenProject: (id: string) => void;
-  actions: ReturnType<typeof useNextActionActions>;
+  /** 完了・延期の口。`sales` の editor でなければ `undefined`（ボタンを出さない） */
+  actions?: ReturnType<typeof useNextActionActions>;
 }) {
   const c = data.customer;
 
