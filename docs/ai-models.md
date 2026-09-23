@@ -57,11 +57,18 @@
 
 | 段 | OpenAI | Anthropic |
 | --- | --- | --- |
-| heavy | `gpt-5.6-terra` | `claude-opus-5` |
-| light | `gpt-5.6-luna` | `claude-haiku-4-5-20251001` |
+| heavy | `gpt-6-sol` | `claude-opus-5` |
+| light | `gpt-6-luna` | `claude-haiku-4-5-20251001` |
 
 **正は [`BUILTIN_MODELS`](../server/src/shared/services/ai-model.ts) です。** この表は写しなので、
 食い違っていたらコード側が正しいと思ってください。
+
+2026-09-23 に OpenAI 側を GPT-6 世代へ上げました（前は `gpt-5.6-terra` / `gpt-5.6-luna`）。
+あわせて SDK（`openai`）を 7.x に上げ、実行環境を **Node.js 22** にしています（SDK 7 が Node 22 以上を要求するため）。
+⚠️ **この環境では実際の API を呼べないまま既定を書き換えています。** 下の「新しい世代に上げるとき」の 1〜3
+（検証環境で両方の段を通す・`ai_usage` と `format_error` を見る）と、`AI_PRICING_JSON` への
+`gpt-6-sol` / `gpt-6-luna` の鍵の追加は、**検証環境に出たあとで必ず行ってください**。
+落ちたら `AI_MODEL_HEAVY=gpt-5.6-terra` / `AI_MODEL_LIGHT=gpt-5.6-luna` で前の世代に戻せます。
 
 ### 新しい世代に上げるとき
 

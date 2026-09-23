@@ -12,6 +12,7 @@ import {
   execute,
   withTransaction,
   type Row,
+  type TxClient,
 } from '../../../shared/db/connection';
 import {
   NotFoundError,
@@ -19,10 +20,17 @@ import {
   checkOptimisticLock,
 } from '../../qsheet/services/httpErrors';
 import { headingsText, extractPageLinks } from '../wiki-markdown';
-import { assertReadablePage, readableSpaceIds, type WikiUser } from './wiki-access.service';
+import type { WikiPropValue } from '../wiki-props';
+import {
+  assertPageWritableTx,
+  assertReadablePage,
+  assertUserExists,
+  readableSpaceIds,
+  type WikiUser,
+} from './wiki-access.service';
 import { assertPageEditable } from './wiki-lock.service';
 import { breadcrumbOf } from './wiki-path.service';
-import { checkedRowProps } from './wiki-row-props';
+import { assertPersonsEligible, checkedRowProps } from './wiki-row-props';
 import { recordWikiDraftCorrections } from './wiki-ai-corrections.service';
 
 /** 閲覧の記録の入口（`wiki_page_views.via` の CHECK と同じ5つ） */
@@ -249,12 +257,19 @@ export interface SavePageOptions {
    * （プロジェクト管理の「AI 自身は除外」と同じ穴）。
    */
   skipAiFeedback?: boolean;
+  /**
+   * 保存と**同じ取引の中で**先にやること（ページの行の錠を取る前に呼ぶ）。
+   * 下書き（`wiki-draft.service`）が「足りないページ」の質問を押さえるのに使います —
+   * 別の取引で押さえて書き換えが落ちると、押さえだけが残るため（#740 の Codex 指摘・P2）。
+   */
+  inTx?: (tx: TxClient) => Promise<void>;
 }
 
 export async function savePageInternal(
   pageId: string,
   input: SavePageInput,
-  user: { id: string },
+  /** 錠の中で書けるかを見直すので、役割・権限まで要る（`req.user` をそのまま渡せる） */
+  user: WikiUser,
   opts: SavePageOptions = {},
 ): Promise<Row> {
   if (input.title !== undefined && !String(input.title).trim()) {
@@ -269,16 +284,20 @@ export async function savePageInternal(
    *    ONAiR リンクの相手を引く問い合わせが増えるので、行の錠を掴んだまま待たせません。
    *    行でなければ渡された値がそのまま返ります（段A・段B の振る舞いを変えない）。
    */
-  const checkedProps = input.props === undefined
+  const checked = input.props === undefined
     ? undefined
     : await checkedRowProps(pageId, input.props);
 
+  /** 下書きから公開に進めた保存か（下の ⑦ で使う） */
+  let publishedNow = false;
   await withTransaction(async (tx) => {
+    if (opts.inTx) await opts.inTx(tx);
     // 同じページへの同時保存を直列にする（FOR UPDATE）。突き合わせだけでは、
     // 2人が同じ `updated_at` を持って同時に来たときに両方が通ってしまう
     const cur = await tx.queryOne(
       `SELECT p.id, p.rev, p.title, p.body_md, p.icon, p.status, p.parent_id, p.sort_order,
               p.props, p.tags, p.owner_user_id, p.review_by::text AS review_by,
+              p.space_id, p.created_by,
               p.published_at, p.updated_at, p.updated_by,
               p.locked_by, p.locked_at,
               (SELECT u.name FROM users u WHERE u.id = p.updated_by) AS updater_name,
@@ -289,6 +308,13 @@ export async function savePageInternal(
       [pageId],
     );
     if (!cur) throw new NotFoundError('ページが見つかりません');
+    // 入口で読めても、錠を取るまでに閲覧範囲・メンバーが変わりうる（`assertPageWritableTx`）
+    await assertPageWritableTx(tx, user, cur);
+    // 担当・人の項目は**錠の中の値と比べて**見る（`assertUserExists`・`checkedRowProps` の注記）
+    if (input.owner_user_id) {
+      await assertUserExists(input.owner_user_id, (cur.owner_user_id as string | null) ?? null, tx);
+    }
+    publishedNow = cur.status === 'draft' && input.status === 'published';
 
     // 編集ロック（§6-③）。**本文・題を変えるときだけ**見る —
     //    情報の欄（担当・見直し予定・タグ・アイコン）は編集中の人が居ても直せる（§6-②）。
@@ -308,7 +334,15 @@ export async function savePageInternal(
     const title = String(pick(input.title, cur.title)).trim();
     const body = String(pick(input.body_md, cur.body_md) ?? '');
     const status = String(pick(input.status, cur.status));
-    const props = pick(checkedProps, cur.props as Record<string, unknown>) ?? {};
+    if (checked?.items) {
+      await assertPersonsEligible(
+        checked.items,
+        checked.props as Record<string, WikiPropValue>,
+        (cur.props ?? {}) as Record<string, unknown>,
+        tx,
+      );
+    }
+    const props = pick(checked?.props, cur.props as Record<string, unknown>) ?? {};
     const tags = pick(input.tags, cur.tags as string[]) ?? [];
     const rev = Number(cur.rev) + 1;
 
@@ -360,8 +394,14 @@ export async function savePageInternal(
    * ⚠️ **本文・題を触った保存だけ**を数えます。担当・タグ・見直し予定を直しただけの
    * 保存まで数えると、**情報の欄を埋めた人が「AI を直した人」**になります
    * （メール取込で `status` / `handled_at` を数えなかったのと同じ判断）。
+   *
+   * ⚠️ **ただし下書き → 公開の保存は数えます**（#733 の再レビュー・Codex 指摘・P2）。
+   * AI の下書きを1文字も直さずに「公開」を押すと、自動保存が送るのは `status` だけなので、
+   * 上の条件では記録が1行も残らず、**いちばん良い結果（無修正で採用）だけが分母から
+   * 抜けて**無修正採用率が低く出ていました。公開は「この中身で良い」という判断そのものです。
    */
-  if (!opts.skipAiFeedback && (input.body_md !== undefined || input.title !== undefined)) {
+  const touchedContent = input.body_md !== undefined || input.title !== undefined;
+  if (!opts.skipAiFeedback && (touchedContent || publishedNow)) {
     await recordWikiDraftCorrections(
       pageId,
       {

@@ -125,7 +125,8 @@ export interface ReviewDigest {
     as_is: number;
   };
   /** 未着手の足りないページ（§7-2。ページを書くことが最大の改善） */
-  gaps?: { open: number; top_question: string | null; top_count: number };
+  /** 質問の文は返らない（読めないスペースの中身を含みうるため・サーバーの `wiki-ai-digest.service.ts`） */
+  gaps?: { open: number; top_count: number };
   /** 次の呼び出しに載せる文。**そのまま画面にも出す**（何を直すかが人にも分かる） */
   advice: string[];
 }
@@ -285,7 +286,7 @@ function toDigest(v: unknown): ReviewDigest {
       }
       : undefined,
     gaps: g
-      ? { open: asInt(g.open), top_question: asTextOrNull(g.top_question), top_count: asInt(g.top_count) }
+      ? { open: asInt(g.open), top_count: asInt(g.top_count) }
       : undefined,
     advice: Array.isArray(d.advice) ? d.advice.map(asText).filter((s) => s !== '') : [],
   };

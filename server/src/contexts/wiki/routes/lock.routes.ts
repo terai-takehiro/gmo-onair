@@ -34,21 +34,21 @@ const canManage = [requireAuth, requirePermission('wiki', 'manager')] as const;
 router.post('/pages/:id/lock', ...canEdit, wrap(async (req, res) => {
   const pageId = p1(req.params.id);
   await assertReadablePage(req.user!, pageId);
-  const result = await acquireWikiLock(pageId, req.user!.id);
+  const result = await acquireWikiLock(pageId, req.user!);
   res.json({ success: true, data: result });
 }));
 
 router.delete('/pages/:id/lock', ...canEdit, wrap(async (req, res) => {
   const pageId = p1(req.params.id);
   await assertReadablePage(req.user!, pageId);
-  const lock = await releaseWikiLock(pageId, req.user!.id);
+  const lock = await releaseWikiLock(pageId, req.user!);
   res.json({ success: true, data: lock });
 }));
 
 router.post('/pages/:id/lock/takeover', ...canManage, wrap(async (req, res) => {
   const pageId = p1(req.params.id);
   await assertReadablePage(req.user!, pageId);
-  const lock = await takeoverWikiLock(pageId, req.user!.id);
+  const lock = await takeoverWikiLock(pageId, req.user!);
   res.json({ success: true, data: lock });
 }));
 
@@ -56,7 +56,7 @@ router.post('/pages/:id/lock/takeover', ...canManage, wrap(async (req, res) => {
 router.post('/pages/:id/lock/request', ...canRead, wrap(async (req, res) => {
   const pageId = p1(req.params.id);
   await assertReadablePage(req.user!, pageId);
-  const lock = await requestWikiLockHandoff(pageId, req.user!.id);
+  const lock = await requestWikiLockHandoff(pageId, req.user!);
   res.json({ success: true, data: lock });
 }));
 

@@ -46,24 +46,29 @@ export interface WikiAiDigest {
   answer?: WikiAnswerOutcome;
   draft?: WikiDraftOutcome;
   rewrite?: WikiRewriteOutcome;
-  /** 未着手の「足りないページ」の数と、いちばん多い質問（条件4の本体） */
-  gaps?: { open: number; top_question: string | null; top_count: number };
+  /**
+   * 未着手の「足りないページ」の数と、いちばん多い質問の回数（条件4の本体）。
+   *
+   * ⚠️ **質問の文は入れません**（#733 の再レビュー・Codex 指摘・P1 ×2）。質問は人が打った文で、
+   * **入っていない「メンバーだけ」のスペースの中身を含みえます**。以前は最多の質問を
+   * そのまま載せていたため、①メンバーでない manager が見直しの画面で、②静的 API キーや
+   * reader の OAuth が MCP の `get_ai_feedback_digest` で、③**次に質問した全員**が AI の
+   * プロンプト経由で、その文を受け取れました。質問の文は、スペースで絞って返す
+   * 「足りないページ」の一覧（`listGaps`）だけで見せます。
+   */
+  gaps?: { open: number; top_count: number };
   /** 次のプロンプトに載せる文（この順で並べる） */
   advice: string[];
 }
 
-/** 未着手の足りないページ（§7-2）。**プロンプトより先に効く還流** */
-async function openGaps(): Promise<{ open: number; top_question: string | null; top_count: number }> {
+/** 未着手の足りないページ（§7-2）。**プロンプトより先に効く還流**（数だけ・文は返さない） */
+async function openGaps(): Promise<{ open: number; top_count: number }> {
   const row = await queryOne(
-    `SELECT COUNT(*)::int AS open,
-            (SELECT question FROM wiki_ai_gaps
-              WHERE status = 'open' ORDER BY count DESC, last_asked_at DESC LIMIT 1) AS top_question,
-            COALESCE((SELECT MAX(count) FROM wiki_ai_gaps WHERE status = 'open'), 0)::int AS top_count
+    `SELECT COUNT(*)::int AS open, COALESCE(MAX(count), 0)::int AS top_count
        FROM wiki_ai_gaps WHERE status = 'open'`,
   );
   return {
     open: Number(row?.open ?? 0),
-    top_question: row?.top_question ? String(row.top_question) : null,
     top_count: Number(row?.top_count ?? 0),
   };
 }
@@ -139,9 +144,9 @@ function buildWikiAdvice(d: WikiAiDigest): string[] {
       + '**元の文が既に整っているならそのまま返してください**（無理に書き換えない）。');
   }
 
-  if (d.gaps && d.gaps.open > 0 && d.gaps.top_question) {
+  if (d.gaps && d.gaps.open > 0) {
     out.push(`答えられなかった質問が ${d.gaps.open} 件たまっています`
-      + `（最多は「${d.gaps.top_question}」の ${d.gaps.top_count} 回）。`
+      + `（いちばん多いものは ${d.gaps.top_count} 回聞かれています）。`
       + 'これはページを書けば解ける種類の不足です。');
   }
   return out;

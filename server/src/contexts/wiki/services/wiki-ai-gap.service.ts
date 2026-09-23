@@ -14,7 +14,7 @@
  * `wiki-markdown.ts` に一字一句そろえた写しを持っています。
  */
 import { v4 as uuid } from 'uuid';
-import { queryAll, queryOne, execute, type TxClient } from '../../../shared/db/connection';
+import { queryAll, queryOne, type TxClient } from '../../../shared/db/connection';
 import { NotFoundError, ValidationError } from '../../qsheet/services/httpErrors';
 import { normalizeQuestion } from '../wiki-markdown';
 import { isWikiManager, readableSpaceIds, type WikiUser } from './wiki-access.service';
@@ -152,20 +152,53 @@ export async function resolveGap(
   return out ?? {};
 }
 
-/** ページを作った側から結びつける（「ページにする」を押したとき） */
-export async function markGapWritten(gapId: string, pageId: string, userId: string): Promise<void> {
-  await execute(MARK_GAP_WRITTEN_SQL, [pageId, userId, gapId]).catch((e: unknown) => {
-    console.warn('[wiki-ai] 足りないページの結びつけに失敗:', (e as Error).message);
-  });
-}
-
+/**
+ * ⚠️ **`status = 'open'` の質問だけに当てます**（#735 の再レビュー・Codex 指摘）。
+ * id だけで当てていたころは、同じ質問で2人が同時に「ページを作成」を押すと、
+ * 後の取引が前の取引の確定を待ってから**上書きして**両方のページが残りました
+ * （結びつかない下書きが1本余る）。`open` に限れば後の取引は当たらずに巻き戻ります。
+ */
 const MARK_GAP_WRITTEN_SQL = `
   UPDATE wiki_ai_gaps
      SET status = 'written', page_id = ?, resolved_by = ?, resolved_at = NOW()
-   WHERE id = ?`;
+   WHERE id = ? AND status = 'open'`;
 
 /**
- * 同じ結びつけを、**ページを作る取引の中で**行う（Codex レビュー指摘・#735）。
+ * 足りないページの質問を、**その人が見てよいときだけ**返す（ページを作る側の入口）。
+ *
+ * ⚠️ 見る条件は一覧（`listGaps`）と同じです（#740 の Codex 指摘・P1）:
+ * manager であること、**棚が読めるスペースか棚が未推定**であること。
+ * 一覧だけで絞っていたころは、「メンバーだけ」のスペースから外された manager が、
+ * 開いたままの画面に残っていた id で質問の文を AI の下書きの材料にでき、
+ * その結果を読めるスペースへ書き出せました。どれかに外れたら存在ごと隠します（404）。
+ * そのうえで、まだ `open` かを見ます（下の `assertGapOpen`）。
+ */
+export async function readOpenGapFor(user: WikiUser, gapId: string): Promise<{ question: string }> {
+  if (!isWikiManager(user)) throw new NotFoundError('足りないページの質問が見つかりません');
+  const spaceIds = await readableSpaceIds(user);
+  const row = await queryOne(
+    'SELECT question FROM wiki_ai_gaps WHERE id = ? AND (space_id IS NULL OR space_id = ANY(?))',
+    [gapId, spaceIds],
+  );
+  if (!row) throw new NotFoundError('足りないページの質問が見つかりません');
+  await assertGapOpen(gapId);
+  return { question: String(row.question ?? '') };
+}
+
+/**
+ * 結びつける前の確認（AI の下書きは AI を呼ぶ**前に**見る。呼んでから断ると費用だけかかる）。
+ * 無い → 404／もう片づいている → 400（押し直しても同じなので、読み込み直しを促す）。
+ */
+export async function assertGapOpen(gapId: string, db: Pick<TxClient, 'queryOne'> = { queryOne }): Promise<void> {
+  const row = await db.queryOne('SELECT status FROM wiki_ai_gaps WHERE id = ?', [gapId]);
+  if (!row) throw new NotFoundError('足りないページの質問が見つかりません');
+  if (row.status !== 'open') {
+    throw new ValidationError('この質問は、ほかの人がもう片づけました。一覧を読み込み直してください。');
+  }
+}
+
+/**
+ * 同じ結びつけを、**ページを作る・書き換える取引の中で**行う（Codex レビュー指摘・#735・#740）。
  *
  * ⚠️ **ここでは握りつぶしません。** 結びつけに失敗したらページごと巻き戻すのが
  * 狙いです。片方だけ成功すると、**下書きは残ったのに質問は `open` のまま**になり、
@@ -176,10 +209,36 @@ export async function markGapWrittenTx(
   tx: TxClient,
   gapId: string,
   pageId: string,
-  userId: string,
+  user: WikiUser,
 ): Promise<void> {
+  /*
+   * ⚠️ **押さえる瞬間に、もう一度「見てよい質問か」を同じ取引の中で見ます**（#740 の Codex 指摘・P1）。
+   * 入口の `readOpenGapFor` は AI を呼ぶ前なので、長い呼び出しの間に「メンバーだけ」の
+   * スペースから外された manager が、その質問を片づけ、結果を別のスペースの下書きに
+   * 書けました。質問の行を `FOR UPDATE`、棚のスペースを `FOR SHARE` で押さえてから
+   * 見るので、スペースの変更（`FOR UPDATE`）とも直列になります。見られなければ 404。
+   */
+  if (!isWikiManager(user)) throw new NotFoundError('足りないページの質問が見つかりません');
+  const gap = await tx.queryOne('SELECT space_id FROM wiki_ai_gaps WHERE id = ? FOR UPDATE', [gapId]);
+  if (!gap) throw new NotFoundError('足りないページの質問が見つかりません');
+  if (gap.space_id && user.role !== 'system_admin') {
+    const space = await tx.queryOne(
+      'SELECT visibility FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR SHARE',
+      [String(gap.space_id)],
+    );
+    const member = space && space.visibility !== 'all'
+      ? await tx.queryOne(
+        'SELECT 1 AS ok FROM wiki_space_members WHERE space_id = ? AND user_id = ?',
+        [String(gap.space_id), user.id],
+      )
+      : null;
+    if (!space || (space.visibility !== 'all' && !member)) {
+      throw new NotFoundError('足りないページの質問が見つかりません');
+    }
+  }
   // ⚠️ `RETURNING` で**当たったか**を見る。当たらない（消えた・id が違う）ときに
   //    黙って通すと、ページだけできて質問は結びつかないまま＝直したい状態に戻る
-  const row = await tx.queryOne(`${MARK_GAP_WRITTEN_SQL} RETURNING id`, [pageId, userId, gapId]);
-  if (!row) throw new NotFoundError('足りないページの質問が見つかりません');
+  const row = await tx.queryOne(`${MARK_GAP_WRITTEN_SQL} RETURNING id`, [pageId, user.id, gapId]);
+  // 当たらなかった理由（無い／もう片づいている）で文言を分ける。どちらでも取引ごと巻き戻る
+  if (!row) await assertGapOpen(gapId, tx);
 }

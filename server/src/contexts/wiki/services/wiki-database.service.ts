@@ -22,6 +22,7 @@ import {
   queryOne,
   withTransaction,
   type Row,
+  type TxClient,
 } from '../../../shared/db/connection';
 import {
   NotFoundError,
@@ -29,7 +30,7 @@ import {
   checkOptimisticLock,
 } from '../../qsheet/services/httpErrors';
 import type { WikiItem } from '../wiki-props';
-import { assertReadablePage, type WikiUser } from './wiki-access.service';
+import { assertReadablePage, lockWritablePageTx, type WikiUser } from './wiki-access.service';
 import {
   defaultTableView,
   normalizeItems,
@@ -139,6 +140,8 @@ export async function putDatabase(
   let droppedValues = false;
 
   await withTransaction(async (tx) => {
+    // 錠を取ったあとで読めるかを見直す（`lockWritablePageTx`）
+    await lockWritablePageTx(tx, user, pageId, 'share');
     const cur = await tx.queryOne(
       `SELECT d.page_id, d.items, d.updated_at, d.updated_by,
               (SELECT u.name FROM users u WHERE u.id = d.updated_by) AS updater_name
@@ -205,24 +208,33 @@ export async function setPageKind(
   kind: 'page' | 'database',
 ): Promise<void> {
   await assertReadablePage(user, pageId);
-  const page = await queryOne(
-    'SELECT id, kind FROM wiki_pages WHERE id = ? AND deleted_at IS NULL',
-    [pageId],
-  );
-  if (!page) throw new NotFoundError('ページが見つかりません');
-  if (page.kind === kind) return;
+  await withTransaction((tx) => setPageKindTx(tx, user, pageId, kind));
+}
 
-  await withTransaction(async (tx) => {
-    await tx.execute('UPDATE wiki_pages SET kind = ? WHERE id = ? AND deleted_at IS NULL', [kind, pageId]);
-    if (kind !== 'database') return;
-    // 表のタブが1つも無い画面を出さないよう、最初の「表」を作っておく
-    await tx.execute(
-      `INSERT INTO wiki_databases (page_id, items, views, updated_by)
-       VALUES (?, '[]'::jsonb, ?::jsonb, ?)
-       ON CONFLICT (page_id) DO NOTHING`,
-      [pageId, JSON.stringify([defaultTableView()]), user.id],
-    );
-  });
+/**
+ * `setPageKind` の中身を、**呼ぶ側の取引の中で**行う形。
+ * `PATCH /wiki/pages/:id` が種類と中身を一緒に送ってきたとき、保存（`savePageInternal` の `inTx`）と
+ * 同じ取引に入れます — 別々にすると、担当の検査で保存を断ったのに種類だけ変わりました
+ * （#740 の Codex 指摘・P2）。
+ */
+export async function setPageKindTx(
+  tx: TxClient,
+  user: WikiUser,
+  pageId: string,
+  kind: 'page' | 'database',
+): Promise<void> {
+  // 錠を取ったあとで読めるかを見直す（`lockWritablePageTx`）
+  const page = await lockWritablePageTx(tx, user, pageId);
+  if (page.kind === kind) return;
+  await tx.execute('UPDATE wiki_pages SET kind = ? WHERE id = ?', [kind, pageId]);
+  if (kind !== 'database') return;
+  // 表のタブが1つも無い画面を出さないよう、最初の「表」を作っておく
+  await tx.execute(
+    `INSERT INTO wiki_databases (page_id, items, views, updated_by)
+     VALUES (?, '[]'::jsonb, ?::jsonb, ?)
+     ON CONFLICT (page_id) DO NOTHING`,
+    [pageId, JSON.stringify([defaultTableView()]), user.id],
+  );
 }
 
 /** ビューを1本引く（`?view=` で指定されたもの）。無い id は「指定なし」と同じ扱い */

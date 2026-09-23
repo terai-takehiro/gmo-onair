@@ -32,7 +32,12 @@ const U32_MAX = 0xffffffff;
 export interface ZipPeek {
   /** 目次を読めたか。false のときは件数が全部 0（数えられなかった） */
   readable: boolean;
-  /** `.md` の数（根の `README.md` は書き出しが付ける案内なので数えない） */
+  /**
+   * `.md` の数。**根の `README.md` も数えます。** ONAiR の書き出しが付ける案内かどうかは
+   * 中身の印（サーバーの `EXPORT_README_MARKER`）でしか見分けられず、ここは中身を読まないためです。
+   * 名前だけで飛ばしていたころは、Obsidian などの `README.md` 1枚だけの zip で
+   * 「取り込めるものがない」になり、取り込みボタンが押せませんでした（#730 の Codex 指摘・P2）
+   */
   markdown: number;
   /** データベースになりうる `.csv` の数（`_index.csv` は行の `.md` が正なので数えない） */
   csv: number;
@@ -76,8 +81,6 @@ function count(names: string[]): ZipPeek {
     const base = baseName(name);
     if (base === '.DS_Store') continue;
     peek.files += 1;
-    // 根の README.md は ONAiR の書き出しが必ず置くもの（取り込み側も飛ばす）
-    if (name === 'README.md') continue;
     if (base.toLowerCase().endsWith('.md')) peek.markdown += 1;
     else if (base !== '_index.csv' && base.toLowerCase().endsWith('.csv')) peek.csv += 1;
   }

@@ -110,11 +110,17 @@ const KIND_PERMISSION: Record<string, ToolPermission> = {
    * （`gate.ts` の `search_wiki` … が `wiki` の reader、`create_wiki_page` が editor）。
    *
    * ⚠️ 質問の文・下書きの本文・整える前のメモは、**読めないスペースの中身を含みうる**
-   * （人が打った文なので何が書いてあるか分からない）。だから集計値も reader 未満には出さない。
+   * （人が打った文なので何が書いてあるか分からない）。
+   *
+   * ⚠️ **manager にそろえる**（#733 の再レビュー・Codex 指摘・P1）。画面の口
+   * （`GET /wiki/ai/digest`）は manager だけなのに、ここを reader にしていたため、
+   * 画面では見られない人が MCP からは読めた。静的 API キーは素通りのままだが、
+   * Wiki の digest は**質問の文を返さない形**にした（`wiki-ai-digest.service.ts`）ので、
+   * 届くのは率と件数だけになる。
    */
-  [WIKI_ANSWER_KIND]: { module: 'wiki', level: 'reader' },
-  [WIKI_DRAFT_KIND]: { module: 'wiki', level: 'reader' },
-  [WIKI_REWRITE_KIND]: { module: 'wiki', level: 'reader' },
+  [WIKI_ANSWER_KIND]: { module: 'wiki', level: 'manager' },
+  [WIKI_DRAFT_KIND]: { module: 'wiki', level: 'manager' },
+  [WIKI_REWRITE_KIND]: { module: 'wiki', level: 'manager' },
 };
 
 /**

@@ -26,6 +26,8 @@ const READONLY = 'block truncate text-sub text-foreground';
 export interface CellPerson {
   id: string;
   name: string;
+  /** 在籍中か。`false` の人は名前だけ引き、候補には出さない（いまの値を除く） */
+  active?: boolean;
 }
 
 export interface DatabaseCellProps {
@@ -150,10 +152,15 @@ function CheckboxCell({ item, value, canEdit, onCommit, busy }: DatabaseCellProp
 
 function ChoiceCell({ item, value, canEdit, people, onCommit, busy }: DatabaseCellProps) {
   const current = asStringValue(value);
+  /*
+   * 人の項目: 名前は**全員**から引き（停止した人の値も名前で出す）、候補は
+   * **在籍中の人といまの値だけ**に絞る（停止・招待中の人を新しく選ばせない）
+   */
+  const everyone = (people ?? []).map((p) => ({ value: p.id, label: p.name }));
   const choices = item.type === 'person'
-    ? (people ?? []).map((p) => ({ value: p.id, label: p.name }))
+    ? (people ?? []).filter((p) => p.active !== false || p.id === current).map((p) => ({ value: p.id, label: p.name }))
     : (item.options ?? []).map((o) => ({ value: o.value, label: o.value }));
-  const label = choices.find((c) => c.value === current)?.label ?? current;
+  const label = (item.type === 'person' ? everyone : choices).find((c) => c.value === current)?.label ?? current;
 
   if (!canEdit) return <span className={READONLY}>{label}</span>;
 

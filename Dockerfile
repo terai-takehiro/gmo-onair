@@ -40,7 +40,7 @@
 # バージョンを固定参照していないことを確認済み。version を実際に読むのは client の
 # __APP_VERSION__ (ルート package.json) と SettingsPage (client/package.json) だけなので、
 # build-client ステージで実ファイルを COPY し直して戻す。
-FROM node:20-alpine AS manifests
+FROM node:22-alpine AS manifests
 WORKDIR /app
 COPY package.json package-lock.json ./
 COPY client/package.json client/
@@ -63,7 +63,7 @@ RUN node -e "const f=require('fs'),W=['package.json','client/package.json','clie
 #   - lockfile と package.json が食い違っていたらその場で落ちる。install だと
 #     黙って lockfile を書き換えて進むので、**イメージの中身が lockfile と違う**
 #     状態でデプロイされ得る (コード健全性ポリシーの「宣言と解決を一致させる」)
-FROM node:20-alpine AS deps
+FROM node:22-alpine AS deps
 WORKDIR /app
 COPY --from=manifests /app/ ./
 RUN npm ci --workspaces --include-workspace-root
@@ -152,7 +152,7 @@ COPY server/ server/
 RUN npm run build --workspace=server
 
 # ── Stage: production ─────────────────────────
-FROM node:20-alpine AS production
+FROM node:22-alpine AS production
 WORKDIR /app
 
 # pg_dump を使う DB バックアップスクリプト (server/scripts/backup-db-to-box.mjs) のため

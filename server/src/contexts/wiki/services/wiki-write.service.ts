@@ -22,14 +22,15 @@ import { headingsText } from '../wiki-markdown';
 import {
   canReadSpace,
   assertReadablePage,
+  lockWritablePageTx,
   readableSpaceIds,
   type WikiUser,
 } from './wiki-access.service';
 import { assertPageEditable } from './wiki-lock.service';
 import { newWikiPageId, selectPageRow, rebuildPageLinks } from './wiki-page.service';
-import { parentDatabaseItems } from './wiki-row-props';
+import { assertPersonsEligible, parentDatabaseItems } from './wiki-row-props';
 import { recordWikiDraftReject } from './wiki-ai-corrections.service';
-import { markGapWrittenTx } from './wiki-ai-gap.service';
+import { markGapWrittenTx, readOpenGapFor } from './wiki-ai-gap.service';
 import { sanitizeProps } from '../wiki-props';
 import type { WikiPropValue } from '../wiki-props';
 
@@ -154,6 +155,8 @@ export async function createPage(user: WikiUser, input: CreatePageInput): Promis
 
   const parentId = input.parent_id ? String(input.parent_id) : null;
   await assertValidParent(spaceId, parentId);
+  // 足りないページから作るとき: 見てよい質問か（manager・読めるスペース・まだ `open`）
+  if (input.gap_id) await readOpenGapFor(user, String(input.gap_id));
 
   let body = typeof input.body_md === 'string' ? input.body_md : '';
   let icon = input.icon ?? null;
@@ -202,6 +205,41 @@ export async function createPage(user: WikiUser, input: CreatePageInput): Promis
   const pageId = newWikiPageId();
 
   await withTransaction(async (tx) => {
+    /*
+     * ⚠️ **入れる前に、スペースの行を `FOR SHARE` で押さえます。** スペースの削除
+     * （`wiki-space-admin.service.ts` の `deleteSpace`）が同じ行を `FOR UPDATE` で押さえて
+     * 「ページが 0 件なら消す」ので、ここで押さえないと、消えたスペースの下にページが
+     * 残って誰からも辿れなくなります（#740 の Codex 指摘・P1）。
+     */
+    const space = await tx.queryOne(
+      'SELECT id, visibility FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR SHARE',
+      [spaceId],
+    );
+    if (!space) throw new NotFoundError('スペースが見つかりません');
+    /*
+     * ⚠️ **錠を取ったあとで、もう一度読めるかを見ます**（#740 の Codex 指摘・P1）。
+     * 最初の `canReadSpace` は錠の外なので、その後に「メンバーだけ」へ切り替わったり
+     * メンバーから外されたりしても、ここで待ったあとそのまま入れられました
+     * （読めないスペースにページを足せる）。スペースの変更は同じ行を `FOR UPDATE` で
+     * 押さえるので、錠を取れた時点の行と、同じ取引で見たメンバーが最新です。
+     */
+    if (user.role !== 'system_admin' && space.visibility !== 'all') {
+      const member = await tx.queryOne(
+        'SELECT 1 AS ok FROM wiki_space_members WHERE space_id = ? AND user_id = ?',
+        [spaceId, user.id],
+      );
+      if (!member) throw new NotFoundError('スペースが見つかりません');
+    }
+    /*
+     * ⚠️ **呼ぶ側が渡した行の値の「人」は、作る取引の中で確かめます**（#740 の Codex 指摘・P2 ×2）。
+     * 行の作成（`createRow`）と MCP の `create_wiki_page` が、それぞれ別の場所で確かめていたころは、
+     * MCP が確かめ忘れて停止中・存在しない人の id が入り、行の作成は「作る → 値を保存」の
+     * 2つの取引の間に権限が外れると、断りながら空の行を残しました。ここに1つにまとめ、
+     * 行と値を1つの取引で入れます。テンプレートから写した値は見ません（上の「黙って落とす」と同じ理由）。
+     */
+    if (parentItems && input.props !== undefined) {
+      await assertPersonsEligible(parentItems, props as Record<string, WikiPropValue>, {}, tx);
+    }
     const sortOrder = await nextSortOrder(spaceId, parentId);
     await tx.execute(
       `INSERT INTO wiki_pages
@@ -227,7 +265,7 @@ export async function createPage(user: WikiUser, input: CreatePageInput): Promis
      * 中に入れておけば、落ちたときは**ページごと巻き戻る**ので、押し直しが
      * そのままきれいなやり直しになります。
      */
-    if (input.gap_id) await markGapWrittenTx(tx, String(input.gap_id), pageId, user.id);
+    if (input.gap_id) await markGapWrittenTx(tx, String(input.gap_id), pageId, user);
     await rebuildPageLinks(tx, pageId, body);
   });
 
@@ -252,23 +290,26 @@ export interface DeletePageResult {
  */
 export async function deletePage(user: WikiUser, pageId: string): Promise<DeletePageResult> {
   await assertReadablePage(user, pageId);
-  const page = await pageRowOf(pageId);
-  assertPageEditable(page, user.id);
 
-  const rows = await queryAll(
-    `WITH RECURSIVE sub AS (
-        SELECT p.id, 0 AS depth FROM wiki_pages p WHERE p.id = ? AND p.deleted_at IS NULL
-        UNION ALL
-        SELECT c.id, s.depth + 1 FROM sub s
-          JOIN wiki_pages c ON c.parent_id = s.id AND c.deleted_at IS NULL
-         WHERE s.depth < ${MAX_DEPTH}
-      )
-      UPDATE wiki_pages
-         SET deleted_at = NOW(), updated_by = ?, updated_at = NOW()
-       WHERE id IN (SELECT id FROM sub) AND deleted_at IS NULL
-      RETURNING id, status`,
-    [pageId, user.id],
-  );
+  // 錠を取ったあとで読めるかを見直してから消す（`lockWritablePageTx`・#740 の Codex 指摘・P1）
+  const rows = await withTransaction(async (tx) => {
+    const page = await lockWritablePageTx(tx, user, pageId);
+    assertPageEditable(page, user.id);
+    return tx.queryAll(
+      `WITH RECURSIVE sub AS (
+          SELECT p.id, 0 AS depth FROM wiki_pages p WHERE p.id = ? AND p.deleted_at IS NULL
+          UNION ALL
+          SELECT c.id, s.depth + 1 FROM sub s
+            JOIN wiki_pages c ON c.parent_id = s.id AND c.deleted_at IS NULL
+           WHERE s.depth < ${MAX_DEPTH}
+        )
+        UPDATE wiki_pages
+           SET deleted_at = NOW(), updated_by = ?, updated_at = NOW()
+         WHERE id IN (SELECT id FROM sub) AND deleted_at IS NULL
+        RETURNING id, status`,
+      [pageId, user.id],
+    );
+  });
 
   /*
    * 条件2（§7-3）: **公開せずに消した AI の下書きは「丸ごと不採用」**です。
@@ -310,10 +351,13 @@ export async function movePage(
     ? Math.trunc(Number(sortOrder))
     : await nextSortOrder(spaceId, parentId);
 
-  await queryOne(
-    'UPDATE wiki_pages SET parent_id = ?, sort_order = ? WHERE id = ? AND deleted_at IS NULL RETURNING id',
-    [parentId, order, pageId],
-  );
+  await withTransaction(async (tx) => {
+    await lockWritablePageTx(tx, user, pageId);
+    await tx.execute(
+      'UPDATE wiki_pages SET parent_id = ?, sort_order = ? WHERE id = ? AND deleted_at IS NULL',
+      [parentId, order, pageId],
+    );
+  });
   return { id: pageId, space_id: spaceId, parent_id: parentId, sort_order: order };
 }
 
@@ -348,18 +392,11 @@ export async function setPageTemplate(
   isTemplate: boolean,
 ): Promise<Row> {
   await assertReadablePage(user, pageId);
-  await pageRowOf(pageId);
-  await queryOne(
-    'UPDATE wiki_pages SET is_template = ? WHERE id = ? AND deleted_at IS NULL RETURNING id',
-    [isTemplate, pageId],
-  );
+  await withTransaction(async (tx) => {
+    await lockWritablePageTx(tx, user, pageId);
+    await tx.execute('UPDATE wiki_pages SET is_template = ? WHERE id = ?', [isTemplate, pageId]);
+  });
   return selectPageRow(pageId);
-}
-
-/** 担当に入れる人が実在するか（外部キー違反で 500 にしない） */
-export async function assertUserExists(userId: string): Promise<void> {
-  const row = await queryOne("SELECT 1 AS ok FROM users WHERE id = ? AND deleted_at IS NULL", [userId]);
-  if (!row) throw new ValidationError('担当に選んだ人が見つかりません。選び直してください。');
 }
 
 /** `PATCH /wiki/pages/:id` で親を変えるときも、作成・移動と同じ検査を通す */

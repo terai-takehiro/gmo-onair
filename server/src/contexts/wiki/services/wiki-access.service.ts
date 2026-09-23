@@ -11,9 +11,9 @@
  * 権限区画 `wiki` そのものを持たない人は route の `requirePermission` が 403 を返すので、
  * ここで見るのは「区画は持っているが、このスペースは見られない」場合だけです。
  */
-import { queryAll, queryOne } from '../../../shared/db/connection';
+import { queryAll, queryOne, type TxClient } from '../../../shared/db/connection';
 import { meetsPermissionLevel } from '../../../shared/middleware/auth';
-import { NotFoundError } from '../../qsheet/services/httpErrors';
+import { NotFoundError, ValidationError } from '../../qsheet/services/httpErrors';
 
 /** 判定に要る分だけ。`req.user`（AuthUser）をそのまま渡せる形 */
 export interface WikiUser {
@@ -21,6 +21,20 @@ export interface WikiUser {
   role?: string;
   permissions?: Record<string, string>;
 }
+
+/**
+ * Wiki を使える在籍中の利用者だけを通す SQL の条件（`u` は users）。
+ *
+ * ⚠️ **区画 `wiki` の権限（reader 以上）か system_admin の人だけ**です。在籍中かだけを
+ * 見ていたころは、Wiki の権限が無い人も担当・メンバーに選べてしまい、通知から
+ * リンクを開くと全部 403 になっていました（#740 の Codex 指摘・P2）。
+ * **担当・メンバー・人の項目で「新しく選べる人」はすべてこの条件です**（スペースの担当と
+ * メンバー＝`wiki-space-admin.service.ts`、ページの担当＝`wiki-write.service.ts` の
+ * `assertUserExists`、候補の一覧＝`GET /wiki/users` の `active`）。
+ */
+export const WIKI_ELIGIBLE = `u.deleted_at IS NULL AND u.status = 'active'
+  AND (u.role = 'system_admin'
+       OR EXISTS (SELECT 1 FROM user_permissions up WHERE up.user_id = u.id AND up.module = 'wiki'))`;
 
 /** 区画 `wiki` の manager（スペースの設定・編集の引き継ぎ。段B 以降で使う） */
 export function isWikiManager(user: WikiUser): boolean {
@@ -107,6 +121,98 @@ export async function assertReadablePage(user: WikiUser, pageId: string): Promis
 }
 
 /**
+ * 担当に選んでよい人か。
+ *
+ * ⚠️ **新しく選ぶときは在籍中（`status = 'active'`）の人だけ**です（#740 の Codex 指摘・P2）。
+ * 削除していないかだけを見ていたころは、停止・招待中の人を担当にでき、ログインできず
+ * 見直しの通知も届かない人に仕事が付いたままになりました。いまの担当のまま保存する
+ * ときは見ません（あとから停止された担当のページでも、ほかの欄の保存を断らないため）。
+ *
+ * ⚠️ 「いまの担当」は**保存の取引の中で錠を取ったあとの値**を渡します（`savePageInternal`）。
+ * 錠の外で読んだ値と比べると、同時に担当を変えた人の値を古い（停止中の）担当で
+ * 上書きしても「変わっていない」になりました（#740 の Codex 指摘・P2）。
+ */
+export async function assertUserExists(
+  userId: string,
+  currentOwnerId: string | null = null,
+  /** 保存の取引の中で見るときはその取引（`savePageInternal`。錠の中の担当と比べる） */
+  db: Pick<TxClient, 'queryOne'> = { queryOne },
+): Promise<void> {
+  if (currentOwnerId && userId === currentOwnerId) return;
+  // 在籍中で Wiki を使える人だけ（`WIKI_ELIGIBLE`。Wiki の権限が無い人を担当にすると、
+  // 開いても 403・コメントの通知も届かない＝#740 の Codex 指摘・P2）
+  const row = await db.queryOne(`SELECT 1 AS ok FROM users u WHERE u.id = ? AND ${WIKI_ELIGIBLE}`, [userId]);
+  if (!row) {
+    throw new ValidationError('担当に選んだ人が見つからないか、利用が止まっているか、Wiki を使える権限がありません。選び直してください。');
+  }
+}
+
+/**
+ * **保存の取引の中で**、そのページにまだ書けるかを見直す（`savePageInternal` が
+ * ページの行を `FOR UPDATE` で押さえたあとに呼ぶ）。
+ *
+ * ⚠️ 入口の `assertReadablePage` は錠の外なので、そのあとで「全員」→「メンバーだけ」に
+ * 切り替わると、外れた人の保存がそのまま通りました（#740 の Codex 指摘・P1）。
+ * スペースの行を `FOR SHARE` で押さえてから見るので、閲覧範囲・メンバーの変更
+ * （どちらもスペースの行を `FOR UPDATE`）と直列になります。見られなければ 404。
+ */
+export async function assertPageWritableTx(
+  tx: TxClient,
+  user: WikiUser,
+  page: Record<string, unknown>,
+): Promise<void> {
+  const notFound = new NotFoundError('ページが見つかりません');
+  const space = await tx.queryOne(
+    'SELECT visibility FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR SHARE',
+    [String(page.space_id)],
+  );
+  if (!space) throw notFound;
+  if (user.role !== 'system_admin' && space.visibility !== 'all') {
+    const member = await tx.queryOne(
+      'SELECT 1 AS ok FROM wiki_space_members WHERE space_id = ? AND user_id = ?',
+      [String(page.space_id), user.id],
+    );
+    if (!member) throw notFound;
+  }
+  // 下書きは書いた人・担当・manager だけ（`canReadPage` と同じ規則）
+  if (page.status === 'draft'
+    && page.created_by !== user.id && page.owner_user_id !== user.id && !isWikiManager(user)) {
+    throw notFound;
+  }
+}
+
+/**
+ * ページに書く操作の**取引の入口**。ページの行を押さえ、スペースの行を押さえて読めるかを見直し、
+ * 押さえた行を返します（見られなければ 404）。
+ *
+ * ⚠️ 入口の `assertReadablePage` だけで書くと、その後で「メンバーだけ」へ切り替わったり
+ * メンバーから外されたりしても書けました。保存（#740 の Codex 指摘・P1）に続いて削除でも
+ * 指摘されたので、**ページに書く操作はすべてここを通します**（削除・移動・テンプレート・
+ * 種類・項目の定義・見直し・編集ロック・コメント）。
+ *
+ * `mode`: その取引でページの行を書き換えるなら `update`、書き換えない（コメント・項目の定義）なら `share`。
+ */
+export async function lockWritablePageTx(
+  tx: TxClient,
+  user: WikiUser,
+  pageId: string,
+  mode: 'update' | 'share' = 'update',
+): Promise<Record<string, unknown>> {
+  const page = await tx.queryOne(
+    `SELECT p.id, p.space_id, p.status, p.created_by, p.owner_user_id, p.kind,
+            p.review_by::text AS review_by, p.locked_by, p.locked_at,
+            (SELECT u.name FROM users u WHERE u.id = p.locked_by) AS locked_by_name
+       FROM wiki_pages p
+      WHERE p.id = ? AND p.deleted_at IS NULL
+      ${mode === 'update' ? 'FOR UPDATE OF p' : 'FOR SHARE OF p'}`,
+    [pageId],
+  );
+  if (!page) throw new NotFoundError('ページが見つかりません');
+  await assertPageWritableTx(tx, user, page);
+  return page;
+}
+
+/**
  * **通知を出す相手が、いまそのページを読めるか**を見るための `WikiUser` を作る
  * （Codex レビュー指摘・#735）。
  *
@@ -115,7 +221,9 @@ export async function assertReadablePage(user: WikiUser, pageId: string): Promis
  * **入っていない棚の担当に据えられた**ときに、そのまま送ると題と本文の一部が
  * 届いてしまいます（押しても 404 になるページの中身が、ベルの中だけで読める）。
  *
- * 退職・停止した人（`deleted_at` / `status`）もここで落ちます。
+ * 退職・停止した人（`deleted_at` / `status`）と、**区画 `wiki` の権限が無い人**もここで落ちます
+ * （権限が無いと、通知のリンクを開いても全部 403 になるため。#735 の再レビューで、
+ * 全員が読めるスペースでは `canReadSpace` だけでは落ちないことが分かった）。
  * 返り値が `null` なら**送らない**でください。
  */
 export async function wikiUserById(userId: string): Promise<WikiUser | null> {
@@ -132,6 +240,7 @@ export async function wikiUserById(userId: string): Promise<WikiUser | null> {
     );
     user.permissions = {};
     for (const p of perms) user.permissions[String(p.module)] = String(p.access_level);
+    if (!meetsPermissionLevel(user.role, user.permissions.wiki, 'reader')) return null;
   }
   return user;
 }

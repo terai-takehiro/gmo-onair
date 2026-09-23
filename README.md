@@ -42,7 +42,7 @@ ONAiR は1つの巨大なアプリではなく、役割ごとに分かれた「�
 | 層 | 使っているもの |
 | --- | --- |
 | フロントエンド | React 18 + Vite 6 + TypeScript + TailwindCSS 3 + shadcn/ui + TanStack Query + Zustand + React Router v6 |
-| バックエンド | Node.js 20 + Express + TypeScript + PostgreSQL 16（`pg`）。1つのイメージが API と全アプリの静的ファイルを配信 |
+| バックエンド | Node.js 22 + Express + TypeScript + PostgreSQL 16（`pg`）。1つのイメージが API と全アプリの静的ファイルを配信 |
 | リアルタイム | Socket.IO（`/techops` 名前空間で本番進行を同期。旧 `/qsheet` はブリッジで生存） |
 | 認証 | `AUTH_MODE` で切替。本番・検証は Email/Password（＋SMS 確認コード）、手元の開発の既定はユーザーカード選択式（mock） |
 | AI / 外部連携 | MCP サーバー（`/api/v1/mcp`・[docs/mcp-server.md](docs/mcp-server.md)）・BOX・Google／Outlook カレンダー・Twilio・SMTP |
@@ -54,7 +54,7 @@ ONAiR は1つの巨大なアプリではなく、役割ごとに分かれた「�
 
 ## 開発を始める
 
-必要なもの: **Node.js 20**・**Docker**（検証用 Postgres 用）。詳しい手順と守るべき決めごとは [CONTRIBUTING.md](CONTRIBUTING.md)。
+必要なもの: **Node.js 22**・**Docker**（検証用 Postgres 用）。詳しい手順と守るべき決めごとは [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ```bash
 git clone https://github.com/terai-takehiro/gmo-onair.git && cd gmo-onair

@@ -39,7 +39,7 @@ import {
   type CsvDatabase,
 } from './wiki-import-parse';
 import { collectAssetRefs, rewriteAssetLinks } from './wiki-import-assets';
-import { ZipReader } from './wiki-import-read';
+import { ZipReader, assertZipEntryCount } from './wiki-import-read';
 
 /** 1回に取り込めるページ数。超えたら**1枚も作らずに**止めます */
 const MAX_IMPORT_PAGES = 1000;
@@ -134,6 +134,7 @@ export async function importZip(
   if (parentId) await assertReadablePage(user, parentId);
   const status = input.status === 'draft' ? 'draft' : 'published';
 
+  assertZipEntryCount(buffer);   // ⚠️ JSZip に渡す前（`wiki-import-read.ts`）
   let zip: JSZip;
   try {
     zip = await JSZip.loadAsync(buffer);

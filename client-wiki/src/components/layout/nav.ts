@@ -6,7 +6,7 @@
  *   ＋「スペース」の見出しの下にスペース（API から来る）
  *   ＋「管理」の見出しの下にテンプレート・スペース管理
  * の3かたまり。**その全部をここに書いてある**が、画面がまだ無い項目には
- * `ready: false` を立てて外している（いま外れているのは スペース管理＝段F だけ）。
+ * `ready: false` を立てて外している（**スペース管理を作ったので、いまは1つも外れていない**）。
  *
  * ⚠️ **押せるのに何も出ない項目を出さない。** ルートの無い行き先を左メニューに
  *    並べると、押した人には「壊れている」としか見えない（§6-①）。
@@ -21,7 +21,7 @@ import type { ShellMobileTab, ShellNavItem, ShellNavSection } from '@gmo-onair/s
 import type { WikiSpace } from '@gmo-onair/shared/src/wiki/types';
 
 interface PlannedNavItem extends ShellNavItem {
-  /** その画面が既にあるか。段F まででできていないのは スペース管理 だけ */
+  /** その画面が既にあるか。設計 §6-① の画面は全部そろったので、いまは全部 true */
   ready: boolean;
 }
 
@@ -37,7 +37,7 @@ const TOP: PlannedNavItem[] = [
 const ADMIN: PlannedNavItem[] = [
   { label: 'テンプレート',  to: '/templates', icon: LayoutTemplate, ready: true },  // 段B で作った
   { label: '書き出しと取り込み', to: '/transfer', icon: ArrowDownUp, wrap: true, ready: true }, // 段D で作った
-  { label: 'スペース管理',  to: '/spaces',    icon: Settings2,      ready: false }, // 段F
+  { label: 'スペース管理',  to: '/spaces',    icon: Settings2,      ready: true  }, // 段F の残り（最後の1つ）
 ];
 
 const shipped = (items: PlannedNavItem[]): ShellNavItem[] =>

@@ -13,6 +13,11 @@
  * | Notion | `ページ 32桁の英数字.md` ＋ 同名フォルダ ＋ `表 32桁.csv` | 32桁の id を名前から落とす。CSV はデータベースとして取り込む |
  * | ONAiR の書き出し | `ページ.md` ＋ `ページ/` ＋ `データベース/_database.md` | `_database.md` の JSON から項目とビューを戻す |
  */
+import { ValidationError } from '../../qsheet/services/httpErrors';
+
+/** 取り込めるフォルダの深さ。書き出しは深さで打ち切らないので、ふつうのページの木なら収まる */
+const MAX_IMPORT_DEPTH = 200;
+
 
 /** Notion が名前の末尾に付ける id（32桁の英数字・UUID）を落とす */
 export function stripNotionId(name: string): string {
@@ -77,7 +82,15 @@ export function buildImportPlan(
 
 /** 1階層ぶんを組み立てる（`dir` は `''` か `a/` の形） */
 function childrenOf(dir: string, paths: string[], depth: number): ImportNode[] {
-  if (depth > 20) return []; // 取り違えで無限に回らないよう、道の深さで止める
+  /*
+   * ⚠️ **深すぎる道は、黙って落とさず断ります。** 20段で `[]` を返していたころは、
+   * 21段目より下のページが**何も言わずに**取り込まれず（書き出し側で直した
+   * 「深い階層が往復で消える」の取り込み側。#740 で見つけた）、件数も合いませんでした。
+   * zip の道は文字列の木なので輪にはならず、止めるのは再帰が深くなりすぎるときだけです。
+   */
+  if (depth > MAX_IMPORT_DEPTH) {
+    throw new ValidationError(`フォルダの階層が深すぎます（${MAX_IMPORT_DEPTH}段まで）。浅くしてからお試しください。`);
+  }
   const here = paths.filter((p) => p.startsWith(dir));
   const direct = here.filter((p) => !p.slice(dir.length).includes('/'));
   const subDirs = new Set<string>();

@@ -26,11 +26,11 @@
  * 同じ数字を2か所で作ると、片方を直した日に食い違います。
  */
 import { v4 as uuid } from 'uuid';
-import { queryAll, queryOne, execute, type Row } from '../../../shared/db/connection';
+import { queryAll, queryOne, withTransaction, type Row } from '../../../shared/db/connection';
 import { ForbiddenError, NotFoundError, ValidationError } from '../../qsheet/services/httpErrors';
 import { notify, template as notificationTemplate, fill } from '../../platform/services/notification.service';
 import {
-  assertReadablePage, canReadPage, isWikiManager, readableSpaceIds, wikiUserById,
+  assertReadablePage, canReadPage, isWikiManager, lockWritablePageTx, readableSpaceIds, wikiUserById,
   type WikiUser,
 } from './wiki-access.service';
 
@@ -188,11 +188,15 @@ export async function addComment(
   }
 
   const id = newCommentId();
-  await execute(
-    `INSERT INTO wiki_comments (id, page_id, parent_id, body_md, created_by)
-     VALUES (?, ?, ?, ?, ?)`,
-    [id, pageId, parentId, body, user.id],
-  );
+  // 錠を取ったあとで読めるかを見直してから書く（`lockWritablePageTx`）
+  await withTransaction(async (tx) => {
+    await lockWritablePageTx(tx, user, pageId, 'share');
+    await tx.execute(
+      `INSERT INTO wiki_comments (id, page_id, parent_id, body_md, created_by)
+       VALUES (?, ?, ?, ?, ?)`,
+      [id, pageId, parentId, body, user.id],
+    );
+  });
 
   await notifyComment(user, pageId, id, parentId, body);
 
@@ -286,13 +290,16 @@ export async function setCommentResolved(
 ): Promise<Row> {
   const c = await commentWithPage(commentId);
   await assertReadablePage(user, String(c.page_id));
-  await execute(
-    `UPDATE wiki_comments
-        SET resolved_at = ${resolved ? 'NOW()' : 'NULL'},
-            resolved_by = ?
-      WHERE id = ?`,
-    [resolved ? user.id : null, commentId],
-  );
+  await withTransaction(async (tx) => {
+    await lockWritablePageTx(tx, user, String(c.page_id), 'share');
+    await tx.execute(
+      `UPDATE wiki_comments
+          SET resolved_at = ${resolved ? 'NOW()' : 'NULL'},
+              resolved_by = ?
+        WHERE id = ?`,
+      [resolved ? user.id : null, commentId],
+    );
+  });
   const row = await queryOne(`${COMMENT_SELECT} WHERE c.id = ?`, [commentId]);
   return { ...(row ?? {}), can_delete: isWikiManager(user) || row?.created_by === user.id };
 }
@@ -311,7 +318,10 @@ export async function deleteComment(user: WikiUser, commentId: string): Promise<
   if (c.created_by !== user.id && !isWikiManager(user)) {
     throw new ForbiddenError('コメントを消せるのは書いた本人か Wiki の管理者だけです');
   }
-  await execute('UPDATE wiki_comments SET deleted_at = NOW() WHERE id = ?', [commentId]);
+  await withTransaction(async (tx) => {
+    await lockWritablePageTx(tx, user, String(c.page_id), 'share');
+    await tx.execute('UPDATE wiki_comments SET deleted_at = NOW() WHERE id = ?', [commentId]);
+  });
   return { id: commentId, page_id: c.page_id, deleted: true };
 }
 

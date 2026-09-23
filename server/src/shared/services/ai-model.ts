@@ -70,8 +70,10 @@ export type AiJob =
  * 焼き込むと「いつの値段か」が分からないまま金額が独り歩きします。
  */
 export const BUILTIN_MODELS: Record<AiTier, Record<AiProvider, string>> = {
-  heavy: { openai: 'gpt-5.6-terra', anthropic: 'claude-opus-5' },
-  light: { openai: 'gpt-5.6-luna', anthropic: 'claude-haiku-4-5-20251001' },
+  // OpenAI は 2026-09 に GPT-6 世代へ（SDK 7.22 で名前が入った）。並びは前の世代と同じ
+  // 「重い＝中位・軽い＝軽量」（5.6-terra → 6-sol・5.6-luna → 6-luna）。戻すときは環境変数1つ
+  heavy: { openai: 'gpt-6-sol', anthropic: 'claude-opus-5' },
+  light: { openai: 'gpt-6-luna', anthropic: 'claude-haiku-4-5-20251001' },
 };
 
 /**
