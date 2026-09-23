@@ -23,6 +23,7 @@ import { assertReadablePage, readableSpaceIds, type WikiUser } from './wiki-acce
 import { assertPageEditable } from './wiki-lock.service';
 import { breadcrumbOf } from './wiki-path.service';
 import { checkedRowProps } from './wiki-row-props';
+import { recordWikiDraftCorrections } from './wiki-ai-corrections.service';
 
 /** 閲覧の記録の入口（`wiki_page_views.via` の CHECK と同じ5つ） */
 export const WIKI_VIEW_VIA = ['tree', 'search', 'answer', 'link', 'favorite'] as const;
@@ -235,13 +236,26 @@ function pick<T>(given: T | undefined, current: T): T {
  *    ⚠️ **`props` を送ってきた保存だけ**が対象です — 本文だけを直した保存で
  *    既にある値を検査し直すと、項目の型を変えた日に**本文を保存しただけで値が消えます**
  *
- * ⚠️ **まだやっていないこと**（段が来たら足す）:
- * - `ai_corrections` への差分（§5-3-4・§7-3）… 段E
+ * 7. AI の下書きから7日以内の保存なら、`ai_outputs.payload_snapshot` と比べて
+ *    `ai_corrections` に差分を書く（§5-3-4・§7-3 条件2）。
+ *    **トランザクションの外で・best-effort**で行います — 記録のために
+ *    利用者の本文を失わせないため。`opts.skipAiFeedback` は
+ *    **AI 自身の書き込み**（`wiki-draft.service`）だけが立てます。
  */
+export interface SavePageOptions {
+  /**
+   * AI の下書きとの差分を取らない。**AI 自身が本文を置くときだけ** true。
+   * 立て忘れると、AI の書き込みが「人の修正」として積まれます
+   * （プロジェクト管理の「AI 自身は除外」と同じ穴）。
+   */
+  skipAiFeedback?: boolean;
+}
+
 export async function savePageInternal(
   pageId: string,
   input: SavePageInput,
   user: { id: string },
+  opts: SavePageOptions = {},
 ): Promise<Row> {
   if (input.title !== undefined && !String(input.title).trim()) {
     throw new ValidationError('題を入れてください');
@@ -338,5 +352,26 @@ export async function savePageInternal(
     await rebuildPageLinks(tx, pageId, body);
   });
 
-  return selectPageRow(pageId);
+  const saved = await selectPageRow(pageId);
+
+  /*
+   * ⑦ AI の下書きとの差分（§5-3-4・§7-3 条件2）。
+   *
+   * ⚠️ **本文・題を触った保存だけ**を数えます。担当・タグ・見直し予定を直しただけの
+   * 保存まで数えると、**情報の欄を埋めた人が「AI を直した人」**になります
+   * （メール取込で `status` / `handled_at` を数えなかったのと同じ判断）。
+   */
+  if (!opts.skipAiFeedback && (input.body_md !== undefined || input.title !== undefined)) {
+    await recordWikiDraftCorrections(
+      pageId,
+      {
+        title: String(saved.title ?? ''),
+        body_md: String(saved.body_md ?? ''),
+        status: String(saved.status ?? ''),
+      },
+      user.id,
+    );
+  }
+
+  return saved;
 }

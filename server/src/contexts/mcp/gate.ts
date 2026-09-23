@@ -164,6 +164,13 @@ const WRITE_TOOL_PERMISSIONS: Record<string, ToolPermission> = {
   create_schedule_item: { module: 'qsheet', level: 'editor' },
   update_schedule_item: { module: 'qsheet', level: 'editor' },
   delete_schedule_item: { module: 'qsheet', level: 'editor' },
+  // Wiki (2026-09 新設・`docs/design/v4/wiki.md` §7-6・§8)。HTTP 側
+  // (`contexts/wiki/index.ts`) の書き込みルート requirePermission('wiki', 'editor') と一致。
+  // ⚠️ 書けるのは**下書きまで**で、公開する口は作っていない（公開は人が画面で押す）。
+  // ⚠️ このゲートは静的キーには効かない（isOAuth===false は即 return）。静的キーは
+  // `wiki.access.ts` の requireWikiActor() が書き込みを 403 で止める（制作資料と同じ二重の防御）。
+  create_wiki_page: { module: 'wiki', level: 'editor' },
+  update_wiki_page: { module: 'wiki', level: 'editor' },
 };
 
 // MCP 読み取りツールの権限ゲート。HTTP 側では list/get 系にも requirePermission(module)
@@ -264,6 +271,16 @@ const READ_TOOL_PERMISSIONS: Record<string, ToolPermission> = {
   get_day_schedule: { module: 'qsheet', level: 'reader' },
   find_similar_sheets: { module: 'qsheet', level: 'reader' },
   find_similar_qsheets: { module: 'qsheet', level: 'reader' },
+  // Wiki (2026-09 新設)。HTTP 側 (`contexts/wiki/index.ts`) の router 既定
+  // requirePermission('wiki') = reader に揃える。⚠️ 表に足し忘れると、
+  // 権限が1つも無い利用者でも会社の決めごと・手順書を全部読めてしまう
+  // (どちらの表にも無いツールは `enforceToolPermissions` が素通りさせるため)。
+  // スペース単位の閲覧範囲 (`visibility='members'`) は `wiki-access.service.ts` が
+  // 判定する — ここは書き込みツールと同じ二重の防御。
+  search_wiki: { module: 'wiki', level: 'reader' },
+  get_wiki_page: { module: 'wiki', level: 'reader' },
+  list_wiki_pages: { module: 'wiki', level: 'reader' },
+  query_wiki_database: { module: 'wiki', level: 'reader' },
 };
 
 const LEVEL_ORDER: Record<string, number> = { reader: 1, exporter: 1, editor: 2, manager: 3, owner: 3 };

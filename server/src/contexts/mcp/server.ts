@@ -25,6 +25,7 @@ import { registerGpmTools } from './tools/gpm.tools';
 import { registerIntercompanyTools } from './tools/intercompany.tools';
 import { registerKeepTools } from './tools/keep.tools';
 import { registerFeedbackTicketTools } from './tools/feedback-tickets.tools';
+import { registerWikiTools } from './tools/wiki.tools';
 
 // GMO ONAiR MCP サーバー本体。
 // stateless HTTP モードのためリクエストごとに生成される (ツール登録のみで I/O は無いので軽量)。
@@ -93,6 +94,7 @@ export function buildMcpServer(): McpServer {
   registerIntercompanyTools(server); // 社内取引 (SCS⇄GSS。read + 社内発注の作成)
   registerKeepTools(server);       // 隔週キープの定例報告パック (会議1回ぶんの数字を1本の JSON で読む・read)
   registerFeedbackTicketTools(server); // フィードバックチケット (ONAiR自体への要望・不具合。OAuth actor専用の起票 + read)
+  registerWikiTools(server);       // Wiki (手順書・決めごと。検索/取得/ツリー/データベース read + 下書きの作成・追記。公開は人が画面で押す)
 
   return server;
 }

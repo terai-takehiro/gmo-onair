@@ -26,7 +26,7 @@
  */
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { useParams } from 'react-router-dom';
+import { useLocation, useParams } from 'react-router-dom';
 import { Delayed, ErrorPanel, SkeletonRows } from '@gmo-onair/shared/src/client/states';
 import { useSideMenuTopSlot } from '@gmo-onair/shared/src/client/shell/sideMenuSlot';
 import { useRecordView, useWikiPage, useWikiTree } from '@/lib/wikiApi';
@@ -65,6 +65,35 @@ export default function PageViewPage() {
 
   const pageQ = useWikiPage(id);
   const page = pageQ.data;
+
+  /*
+   * 出典（AI に聞く）から `#見出し` 付きで来たら、その見出しまで送る。
+   *
+   * ⚠️ **React Router はハッシュでスクロールしません。** 出典のチップは
+   * `/p/:id#<見出しの slug>` へ移りますが、自分で運ばないとページの先頭に
+   * 着いたままになり、**長い手順書ほど「どこが根拠なのか分からない」**まま
+   * 読ませることになります（出典を付けた意味が薄れる）。
+   *
+   * ⚠️ **本文が届いてから探します。** `page` が入る前は見出しの要素がまだ
+   * 無いので、依存に `page?.rev` を入れて描き直しのあとに動かします。
+   * 見つからない slug（本文が変わって消えた見出し）は**何もしません** —
+   * 先頭に飛ばし直すと、押した人には「壊れた」としか見えません。
+   */
+  const { hash } = useLocation();
+  useEffect(() => {
+    if (!hash || !page) return;
+    let slug = '';
+    try {
+      slug = decodeURIComponent(hash.slice(1));
+    } catch {
+      slug = hash.slice(1);   // 壊れた % があっても落とさない
+    }
+    if (!slug) return;
+    const at = requestAnimationFrame(() => {
+      document.getElementById(slug)?.scrollIntoView({ block: 'start' });
+    });
+    return () => cancelAnimationFrame(at);
+  }, [hash, page]);
   // ツリーは**スペースの key** で取る（サーバーの道が key で切ってある）
   const treeQ = useWikiTree(page?.space_key);
   // 「よく読まれるページ」と、AI の出典が開かれた率（§7-3 条件3）の材料になる
