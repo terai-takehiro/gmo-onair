@@ -137,8 +137,9 @@ UI/UX 刷新 (v2.9.251〜) で決めた文言ルール。**PR レビューのチ
 境界は `shared/tests/activityDueState.test.ts` が固定している。
 **機械の検査**: `scripts/check-ui-tokens.mjs` の `overdue-wording`（記録を持たないので1件でも止まる）。
 和語・標準語の混在（足す・直す・消す・やめる・入れる・打つ・見くらべる・探す）は
-`scripts/check-mock-wording.mjs` の `wago-verb-wording`（Claude が作るモック向け。2026-09-22 時点の
-既存分だけ記録し、増えたら止める）が見る（画面のコードはまだ対象外）。
+`scripts/check-ui-tokens.mjs`（画面のコード。2026-09-23 時点の既存分をアプリ別に記録し、増えたら止める）と
+`scripts/check-mock-wording.mjs`（Claude が作るモック向け。2026-09-22 時点の既存分だけ記録し、増えたら止める）の
+どちらも `wago-verb-wording` が同じ正規表現で見る。
 
 ### ルール9: 開くときも「基本語」で開く。口語・造語・比喩を作らない (2026-09-06 追加)
 
