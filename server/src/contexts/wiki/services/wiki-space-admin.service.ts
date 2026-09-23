@@ -75,6 +75,32 @@ async function assertManageableSpace(user: WikiUser, spaceId: string): Promise<R
   return row;
 }
 
+/**
+ * スペースの行を `FOR UPDATE` で押さえ、**押さえたあとで**もう一度読めるかを見る（取引の中）。
+ *
+ * ⚠️ **`assertManageableSpace` の判定だけでは足りません**（#740 の Codex 指摘・P1）。
+ * 判定は錠の外なので、判定のあと錠を取るまでの間に別の manager がこの人をメンバーから外すと、
+ * 外された人の保存がそのまま通りました（ふつうの保存は自分をメンバーに入れ直し、
+ * 「全員」を送れば限定のスペースを開けてしまう）。メンバーを外しても `updated_at` は
+ * 変わらないので、楽観ロックでも止まりません。錠を取ったあと、同じ取引の中で見直します。
+ */
+async function lockManageableSpaceTx(tx: TxClient, user: WikiUser, spaceId: string): Promise<Row> {
+  const row = await tx.queryOne(
+    `SELECT id, visibility, owner_user_id, updated_at
+       FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR UPDATE`,
+    [spaceId],
+  );
+  if (!row) throw new NotFoundError('スペースが見つかりません');
+  if (user.role !== 'system_admin' && row.visibility !== 'all') {
+    const member = await tx.queryOne(
+      'SELECT 1 AS ok FROM wiki_space_members WHERE space_id = ? AND user_id = ?',
+      [spaceId, user.id],
+    );
+    if (!member) throw new NotFoundError('スペースが見つかりません');
+  }
+  return row;
+}
+
 function cleanName(v: unknown): string {
   const name = String(v ?? '').trim();
   if (!name) throw new ValidationError('スペースの名前を入力してください。');
@@ -252,11 +278,7 @@ export async function updateSpace(user: WikiUser, spaceId: string, input: Update
      * 保存した瞬間に、**古い「全員」で上書きされて限定のスペースが全員に開いて**いました。
      * ページの保存と同じ `checkOptimisticLock` を使います（送られなければ素通し）。
      */
-    const locked = await tx.queryOne(
-      'SELECT updated_at FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
-      [spaceId],
-    );
-    if (!locked) throw new NotFoundError('スペースが見つかりません');
+    const locked = await lockManageableSpaceTx(tx, user, spaceId);
     checkOptimisticLock(input.expected_updated_at, { updated_at: locked.updated_at, updated_by: null }, user.id, 'このスペース');
     await tx.execute(
       `UPDATE wiki_spaces
@@ -291,11 +313,7 @@ export async function deleteSpace(user: WikiUser, spaceId: string): Promise<Row>
    *   - 作るのが先 → 削除は待ったあと、そのページを数えて断る
    */
   await withTransaction(async (tx) => {
-    const locked = await tx.queryOne(
-      'SELECT id FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
-      [spaceId],
-    );
-    if (!locked) throw new NotFoundError('スペースが見つかりません');
+    await lockManageableSpaceTx(tx, user, spaceId);
     const counted = await tx.queryOne(
       'SELECT COUNT(*)::int AS n FROM wiki_pages WHERE space_id = ? AND deleted_at IS NULL',
       [spaceId],
@@ -353,11 +371,7 @@ export async function removeSpaceMember(user: WikiUser, spaceId: string, userId:
    * `FOR UPDATE` で押さえるので、どちらかが必ず待ち、あとの側は新しい担当を見て判断します。
    */
   await withTransaction(async (tx) => {
-    const space = await tx.queryOne(
-      'SELECT visibility, owner_user_id FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
-      [spaceId],
-    );
-    if (!space) throw new NotFoundError('スペースが見つかりません');
+    const space = await lockManageableSpaceTx(tx, user, spaceId);
     if (space.visibility === 'members' && space.owner_user_id === userId) {
       throw new ValidationError('担当はメンバーから外せません。先に担当を別の人に変えてください。');
     }
