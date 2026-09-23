@@ -98,8 +98,9 @@ export function stockReviewNote(reviewOn: string | null | undefined, today: stri
   const days = daysBetweenIso(today, reviewOn);
   if (days < 0) return { tone: 'due', text: `見直し ${jaMd(reviewOn)}（${-days}日超過）`, days };
   if (days === 0) return { tone: 'due', text: '本日が見直し日です', days };
-  if (days <= 7) return { tone: 'soon', text: `見直し ${jaMd(reviewOn)}（あと${days}日）`, days };
-  return { tone: 'later', text: `見直し ${jaMd(reviewOn)}（あと${days}日）`, days };
+  // 残りは「残りN日」（`docs/wording.md` ルール8・9。✕「あとN日」は口語）
+  if (days <= 7) return { tone: 'soon', text: `見直し ${jaMd(reviewOn)}（残り${days}日）`, days };
+  return { tone: 'later', text: `見直し ${jaMd(reviewOn)}（残り${days}日）`, days };
 }
 
 /** `2026-09-30` → `9/30` */

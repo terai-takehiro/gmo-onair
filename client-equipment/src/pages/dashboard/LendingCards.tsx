@@ -15,7 +15,7 @@
 import { Link } from 'react-router-dom';
 import { AlertTriangle, Clock, Package } from 'lucide-react';
 import { cn } from '@gmo-onair/shared/src/client/utils';
-import { dueIn, md } from './dueIn';
+import { dueBadgeLabel, dueIn, md } from './dueIn';
 import type { Stats } from './types';
 
 type Lending = Stats['recent_lendings'][number];
@@ -60,7 +60,7 @@ export function LendingCards({ rows }: { rows: Lending[] }) {
                     : tone === 'warning' ? 'bg-warning-surface text-warning'
                       : 'bg-muted text-muted-foreground',
                 )}>
-                  {late ? `${-days}日 超過` : isToday ? '本日返却' : `あと${days}日`}
+                  {dueBadgeLabel(days)}
                 </span>
               )}
             </span>

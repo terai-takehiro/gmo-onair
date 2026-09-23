@@ -39,7 +39,8 @@ function dueTone(due: string | null, today: string): string {
 function dueSub(due: string | null, today: string): string | null {
   if (!due) return null;
   if (due < today) return '期限超過';
-  if (due === today) return '今日が期限';
+  // 当日は「本日」（`docs/wording.md` ルール8・9）。✕「今日が期限」は口語なので使わない
+  if (due === today) return '本日';
   return null;
 }
 

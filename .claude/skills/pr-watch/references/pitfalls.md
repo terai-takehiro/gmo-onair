@@ -323,3 +323,17 @@ Codex から「コミット `edbba2e` を作り、同名の新規 PR を作成�
 ②主張された成果物は**一次情報で確かめる**（`git cat-file` / `list_pull_requests` /
 `git ls-remote`）。食い違ったら事実だけを1本のコメントで書く
 ③レビューが付いたかどうかは**コメントの見た目ではなく `get_reviews` と要約表**で判定する。
+
+## 2026-09-22 · PR #734 — 開いているあいだに main へ同じ番号の migration が入り、CI で衝突した
+
+**起きたこと**: PR を出した時点では最大が 304 だったので `305_notification_template_overdue_wording.sql` を足した。
+PR が開いているあいだに別の PR が `305_tech_docs.sql` を `main` へ入れ、CI（PR と `main` を合わせた状態で走る）の
+`check-migration-numbers` が **「番号が重複しています（1 組）」**で `checks` を止めた。
+**手元では通っていた**（手元の枝には `305_tech_docs` がまだ無かった）ので、push 前の検査では見つけようがない。
+
+**次はこうする**:
+- 直すのは**後から足した側**（まだどの環境にも流れていない＝マージされていない PR の側）。`main` の最大番号 +1 に `git mv` し、
+  **試験・changelog・棚卸し・PR 本文**の番号も揃える（ファイル名を読む試験が落ちる）
+- ⚠️ **`main` 側の同じ番号は触らない。** 検証環境に流れた migration を改名すると適用記録と食い違う（`GRANDFATHERED` の頭注）
+- 取り込んだあと、検証用 Postgres で `db:migrate` を流し、**`main` 側の番号 → 自分の番号の順に当たる**ことを確かめてから push する
+- migration を足す PR は、**マージの直前にもう一度 `main` の最大番号を見る**と CI の往復が1回減る

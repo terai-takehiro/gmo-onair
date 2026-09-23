@@ -305,7 +305,7 @@ export function GpmGanttView({
         <p className="text-note min-w-0 flex-1 text-muted-foreground">
           {canEdit
             ? 'バーを押すと編集できます。ドラッグで日程ごと移動・端をつまむと期間が変わります。先行タスクを持つバーには矢印が出ます。'
-            : '赤い枠は期限を過ぎた工程・タスクです。矢印は先行→後続の順序です。'}
+            : '赤い枠は期限超過の工程・タスクです。矢印は先行→後続の順序です。'}
         </p>
         <div role="group" aria-label="ズーム" className="flex shrink-0 overflow-hidden rounded-control border border-border bg-card">
           {ZOOMS.map((z, i) => (

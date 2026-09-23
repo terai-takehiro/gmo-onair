@@ -67,8 +67,12 @@ export function duePresets(base: Date): DuePreset[] {
 }
 
 /**
- * 期限の見え方。**過ぎたものを「あと -2日」と出さない**
+ * 期限の見え方。**超過したものを「残り -2日」と出さない**
  * （マイナスは読み違える。`holdLogic.ts` と同じ考え方）。
+ *
+ * 言い方は営業活動記録の期限（`activityLog/dueState.ts` の `duePartsOf`）と揃える
+ * （`docs/wording.md` ルール8・9）。✕「今日まで」「あと 3日」は口語で、
+ * **全アプリのスマホ画面に出る**ここが違う言い方だと、画面ごとに言葉が割れる。
  *
  * `due` は `YYYY-MM-DD`（時刻が付いていても日付だけ見る）、`today` も同じ形。
  */
@@ -79,8 +83,8 @@ export function dueLabel(due: string | null | undefined, today: string): { text:
     const days = Math.round((Date.parse(`${today}T00:00`) - Date.parse(`${d}T00:00`)) / 86400000);
     return { text: `${days}日超過`, tone: 'over' };
   }
-  if (d === today) return { text: '今日まで', tone: 'today' };
+  if (d === today) return { text: '本日', tone: 'today' };
   const days = Math.round((Date.parse(`${d}T00:00`) - Date.parse(`${today}T00:00`)) / 86400000);
-  if (days <= 7) return { text: `あと ${days}日`, tone: 'soon' };
+  if (days <= 7) return { text: `残り${days}日`, tone: 'soon' };
   return { text: d.replace(/-/g, '/').slice(5), tone: 'far' };
 }

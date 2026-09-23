@@ -19,7 +19,11 @@ export function UpcomingPanel({
   items, actions, onSeeAll,
 }: {
   items: ActivityLogRow[];
-  actions: ReturnType<typeof useNextActionActions>;
+  /**
+   * 完了の口。**未指定なら「完了」を出さない**（`sales` の editor が無い人。
+   * サーバーが 403 で止めるボタンを並べない・`LogTab.tsx` の注記）
+   */
+  actions?: ReturnType<typeof useNextActionActions>;
   /**
    * 5件を超える分の行き先。**渡すと「すべて見る」を出す**（`OverviewTab.tsx`
    * の「すべて見る（N件）」と同じ考え方 — 見出しの件数と描画件数を必ず一致させる）。
@@ -63,13 +67,15 @@ export function UpcomingPanel({
               {relatedName(a) && (
                 <span className="hidden shrink-0 truncate text-muted-foreground sm:inline">— {relatedName(a)}</span>
               )}
-              <Button
-                size="sm" variant="outline" className="shrink-0 px-2 text-xs"
-                disabled={actions.isPending}
-                onClick={() => actions.complete(a.id)}
-              >
-                <Check className="mr-0.5 h-3 w-3" aria-hidden="true" />完了
-              </Button>
+              {actions && (
+                <Button
+                  size="sm" variant="outline" className="shrink-0 px-2 text-xs"
+                  disabled={actions.isPending}
+                  onClick={() => actions.complete(a.id)}
+                >
+                  <Check className="mr-0.5 h-3 w-3" aria-hidden="true" />完了
+                </Button>
+              )}
             </li>
           );
         })}

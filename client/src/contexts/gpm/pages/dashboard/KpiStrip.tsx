@@ -93,7 +93,7 @@ export function kpiCells(kpis: GpmKpis, est?: GpmEstimateSummary): Cell[] {
       key: 'week', label: '今週が期限の作業', icon: CalendarDays,
       value: kpis.weekDue, unit: '件',
       sub: kpis.overdueTasks > 0
-        ? `期限が過ぎているもの ${kpis.overdueTasks}件`
+        ? `期限超過 ${kpis.overdueTasks}件`
         : 'プロジェクトごとに直近の1件だけ',
       danger: false,
       to: '/gpm/tasks?tab=next',
@@ -101,7 +101,7 @@ export function kpiCells(kpis: GpmKpis, est?: GpmEstimateSummary): Cell[] {
     {
       key: 'asks', label: '持ち帰り', icon: CircleHelp,
       value: kpis.openAsks, unit: '件',
-      sub: kpis.overdueAsks > 0 ? `返事の期限が過ぎているもの ${kpis.overdueAsks}件` : '先方・社内の判断待ち',
+      sub: kpis.overdueAsks > 0 ? `返事の期限超過 ${kpis.overdueAsks}件` : '先方・社内の判断待ち',
       danger: kpis.openAsks > 0,
       to: '/gpm/tasks',
     },

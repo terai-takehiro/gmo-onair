@@ -90,7 +90,7 @@ function HealthStrip({ projectId, episodeId }: { projectId: string; episodeId: s
           aria-hidden="true"
         />
         <span className={`text-sub ${overdue > 0 ? 'font-bold text-destructive' : 'text-muted-foreground'}`}>
-          期限を過ぎたもの <span className="font-number">{overdue}</span>
+          期限超過 <span className="font-number">{overdue}</span>
         </span>
       </div>
 

@@ -63,8 +63,10 @@ export function dueState(due: string | null | undefined, today: string): DueStat
   // **列に収まる長さで書く**（支払期日の列は 128px）。
   // 「期限超過」はこの製品で既に使っている言い方（ホームの札と同じ）
   if (days < 0) return { tone: 'overdue', text: `${md(due)}（${-days}日超過）`, days };
-  if (days === 0) return { tone: 'today', text: `${md(due)}（今日）`, days };
-  if (days <= DUE_SOON_DAYS) return { tone: 'soon', text: `${md(due)}（あと${days}日）`, days };
+  // 当日・残りは「本日」「残りN日」（`docs/wording.md` ルール8・9）。
+  // ✕「（今日）」「（あと3日）」は口語で、営業活動記録（`activityLog/dueState.ts`）と言い方が割れていた
+  if (days === 0) return { tone: 'today', text: `${md(due)}（本日）`, days };
+  if (days <= DUE_SOON_DAYS) return { tone: 'soon', text: `${md(due)}（残り${days}日）`, days };
   return { tone: 'later', text: md(due), days };
 }
 

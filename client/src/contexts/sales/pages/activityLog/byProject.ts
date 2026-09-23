@@ -71,9 +71,43 @@ export interface ProjectActivityGroup {
   actions: NextActionItem[];
 }
 
+/**
+ * 区分ごとの件数（`summary.actions` / `summary.projects` の1つぶん）。
+ * 区分の定義は `dueState.ts` の冒頭と同じ。`all` は**未完了の次のアクションすべて**
+ * （本日+8 以降も含む）なので、4区分の和とは一致しないことがある。
+ */
+export type DueCounts = Record<DueFilter, number>;
+
+/**
+ * 絞り込みチップの件数（PR #727 の宿題①）。
+ *
+ * ── なぜ2種類を持つか ──────────────────────────────────────
+ *
+ * PR #727 では区分ごとに `limit=1` で5回問い合わせて `pagination.total`
+ * （＝**案件の数**）をチップに出していました。ところがチップの名前は
+ * 「期限超過」「本日・明日」＝**やることの区分**で、利用者は「期限超過 3」を
+ * 「期限を超えたやることが3件」と読みます。1案件に期限超過が5件あっても
+ * 「1」と出る食い違いでした。
+ *
+ * - `actions`  … 未完了の次のアクションの件数（**チップの数字はこちら**）
+ * - `projects` … その区分のやることを1件以上持つ案件の数（押した先に並ぶまとまりの数・小さく添える）
+ *
+ * **サーバーは `due` の絞り込みを無視し、`search` と `user_id` だけを効かせて数えます**
+ * （どの区分を選んでいても全区分の件数を出すため）。`project_id` が null の
+ * まとまり（案件にひも付かない記録）は `projects` では1件として数えます。
+ *
+ * 古いサーバー（summary を返さない）もあるので `?` — **来ていなければ数字を出さない**
+ * （0 と出すと「押しても何も無い」と嘘をつく）。
+ */
+export interface ByProjectSummary {
+  actions: DueCounts;
+  projects: DueCounts;
+}
+
 interface ByProjectResponse {
   data: ProjectActivityGroup[];
   pagination?: { total: number; totalPages: number };
+  summary?: ByProjectSummary;
 }
 
 export interface ByProjectParams {
@@ -105,32 +139,16 @@ export function useByProject(p: ByProjectParams, enabled: boolean) {
   });
 }
 
-/**
- * 絞り込みチップの件数。
+/*
+ * ── 件数の問い合わせを別に立てない理由 ─────────────────────
  *
- * **数えているのは「案件の数」です**（1行＝1案件の画面なので、押した先に並ぶ数と
- * 一致するのはこちら）。契約の返りには集計の節が無いので、`limit=1` の軽い
- * 問い合わせを区分ごとに投げて `pagination.total` だけを読みます。
- * サーバーが集計を1本で返せるようになったら、ここは1リクエストに畳めます
- * （申し送り済み）。
+ * 以前はここに `useDueCounts`（鍵 `['activity-by-project-counts']`・5回問い合わせ）が
+ * ありました。summary は **`due` と `page` に左右されない**ので、一覧の返りに
+ * 乗っているものをそのまま読めば足ります（`LogTab.tsx` が `byProject.data?.summary`
+ * を読む）。1回の表示で6本 → 1本になり、「一覧は新しいのにチップだけ古い」という
+ * 2本の問い合わせの間のずれも起きません。
  *
- * **押す前に 0 件だと分かること**が要点なので、数えられないときは
- * `null` を返して数字を出しません（`FilterChips` の約束）。
+ * ⚠️ そのため**件数を最新にするには `['activity-by-project']` を落とせば足ります。**
+ * 旧い鍵 `['activity-by-project-counts']` は廃止し、落としていた2か所
+ * （`ActivityLogDialog.tsx`・`projectDetail/thread/useThreadEdit.ts`）からも外しました。
  */
-export function useDueCounts(p: Omit<ByProjectParams, 'due' | 'page'>, enabled: boolean) {
-  return useQuery<Record<DueFilter, number>>({
-    queryKey: ['activity-by-project-counts', p.search, p.userId],
-    queryFn: async ({ signal }) => {
-      const dues: DueFilter[] = ['all', 'overdue', 'today', 'week', 'none'];
-      const results = await Promise.all(
-        dues.map(async (due) => {
-          const params = toParams({ ...p, due, page: 1 }, 1);
-          const r = await api.get('/activity-logs/by-project', { params, signal });
-          return [due, (r.data?.pagination?.total ?? 0) as number] as const;
-        }),
-      );
-      return Object.fromEntries(results) as Record<DueFilter, number>;
-    },
-    enabled,
-  });
-}

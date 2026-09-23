@@ -82,7 +82,8 @@ function ActionRow({
 }: {
   a: NextActionItem;
   today: string;
-  actions: Actions;
+  /** 完了・延期の口。**未指定なら操作の列ごと出さない**（`sales` の editor が無い人） */
+  actions?: Actions;
   onEdit?: (id: string) => void;
 }) {
   const due = duePartsOf(a.next_action_date, today);
@@ -117,9 +118,12 @@ function ActionRow({
         <span className="truncate text-sub-sm text-muted-foreground" title={source}>{source}</span>
       </RowSlot>
 
-      <RowSlot w={200}>
-        <NextActionButtons id={a.id} actions={actions} onEdit={onEdit} />
-      </RowSlot>
+      {/* 操作の列は**書ける人にだけ**出す（列見出しの「操作」と同じ条件で消す） */}
+      {actions && (
+        <RowSlot w={200}>
+          <NextActionButtons id={a.id} actions={actions} onEdit={onEdit} />
+        </RowSlot>
+      )}
     </Row>
   );
 }
@@ -130,7 +134,7 @@ function GroupCard({
 }: {
   g: ProjectActivityGroup;
   today: string;
-  actions: Actions;
+  actions?: Actions;
   onEdit?: (id: string) => void;
 }) {
   const stage = g.stage ? STAGE_BADGE_LABEL[g.stage as ProjectStage] : null;
@@ -197,7 +201,11 @@ export function ByProjectRows({
 }: {
   groups: ProjectActivityGroup[];
   today: string;
-  actions: Actions;
+  /**
+   * 完了・延期の口。**未指定なら操作の列を見出しごと出さない**（`sales` の editor 権限が
+   * 無い人。サーバーが 403 で止めるボタンを並べない・`LogTab.tsx` の注記）
+   */
+  actions?: Actions;
   /** 編集導線。**未指定なら「編集」を出さない**（`sales` の editor 権限が無い人） */
   onEdit?: (id: string) => void;
 }) {
@@ -208,7 +216,7 @@ export function ByProjectRows({
         <RowSlot w={128}>期限</RowSlot>
         <RowMain>次のアクション</RowMain>
         <RowSlot w={200}>記録された活動</RowSlot>
-        <RowSlot w={200}>操作</RowSlot>
+        {actions && <RowSlot w={200}>操作</RowSlot>}
       </RowHeader>
 
       {groups.map((g) => (

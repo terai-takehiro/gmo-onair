@@ -110,7 +110,11 @@ export function SideRail({
             </p>
           ) : soon.map((h) => (
             <div key={h.id} className="flex items-center gap-2.5 border-t border-border-faint px-4 py-2.5">
-              <span className={cn('font-number text-badge w-12 shrink-0 rounded-badge-xs px-1 py-1 text-center font-bold', leftTone(h.left))}>
+              {/*
+                幅は 56px（w-14）。`leftLabel` の言い方を「N日前」から「N日超過」に揃えた
+                （`docs/wording.md` ルール8・9）ので1字増え、48px だと「14日超過」が2行に割れる
+              */}
+              <span className={cn('font-number text-badge w-14 shrink-0 rounded-badge-xs px-1 py-1 text-center font-bold', leftTone(h.left))}>
                 {leftLabel(h.left)}
               </span>
               <span className="min-w-0 flex-1">

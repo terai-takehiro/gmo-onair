@@ -91,15 +91,16 @@ export function ActivityLogDialog({
   const customers: CustomerOption[] = custData?.data ?? [];
 
   /**
-   * ⚠️ **案件別の一覧とチップの件数も落とす。** 落とさないと、次のアクションを
-   * 消したのに「期限超過 3」が 3 のまま残る（片方だけ落とすと
-   * 「直したのに古いまま」になる・`client/CLAUDE.md`「invalidate の対」）
+   * ⚠️ **案件別の一覧（とチップの件数）も落とす。** 落とさないと、次のアクションを
+   * 削除したのに「期限超過 3件」が 3 のまま残る（片方だけ落とすと
+   * 「保存したのに古いまま」になる・`client/CLAUDE.md`「invalidate の対」）。
+   * チップの件数は一覧と同じ返り（`summary`）に乗っているので、
+   * `['activity-by-project']` 1つで両方が新しくなる（旧 `activity-by-project-counts` は廃止）
    */
   const invalidate = () => {
     qc.invalidateQueries({ queryKey: ['activity-logs'] });
     qc.invalidateQueries({ queryKey: ['activity-upcoming'] });
     qc.invalidateQueries({ queryKey: ['activity-by-project'] });
-    qc.invalidateQueries({ queryKey: ['activity-by-project-counts'] });
   };
 
   const saveMutation = useMutation({

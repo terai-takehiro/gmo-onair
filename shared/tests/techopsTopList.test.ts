@@ -141,10 +141,10 @@ describe('sortMainList — 放送順（本番日の昇順）・日程未定は�
 });
 
 describe('countdownLabel — 行に添える残り日数', () => {
-  it('今日・明日・あとN日', () => {
-    expect(countdownLabel('2026-09-08', TODAY)).toBe('今日');
+  it('本日・明日・残りN日（✕「今日」「あとN日」・docs/wording.md ルール8・9）', () => {
+    expect(countdownLabel('2026-09-08', TODAY)).toBe('本日');
     expect(countdownLabel('2026-09-09', TODAY)).toBe('明日');
-    expect(countdownLabel('2026-09-16', TODAY)).toBe('あと8日');
+    expect(countdownLabel('2026-09-16', TODAY)).toBe('残り8日');
   });
 
   it('遠い先と過ぎた日は空（日付そのものを出しているので数字は足さない）', () => {

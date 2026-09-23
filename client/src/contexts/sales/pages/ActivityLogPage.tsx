@@ -67,6 +67,7 @@ import { LostPanel } from './salesReview/LostPanel';
 import { PerformancePanel } from './salesReview/PerformancePanel';
 import { TargetDialog } from './salesReview/TargetDialog';
 import type { FunnelData, LostAnalysis, PerformanceRow, StaffUser } from './salesReview/types';
+import { useUsersList } from './activityLog/useAssignees';
 
 const now = new Date();
 const currentYear = now.getFullYear();
@@ -103,6 +104,8 @@ export default function ActivityLogPage() {
     `?view=timeline` のときだけ時系列。**既定は案件別**（利用者のご指摘
     「案件別に見られないと分からない」）。タブと同じくローカル state にはしない —
     URL にしておくと「案件別のこの絞り込み」をそのまま人に渡せる。
+    期限の区分（`?due=`）と担当者（`?user=`）も同じ理由で URL に置く
+    （読み書きは `activityLog/logParams.ts`・`LogTab.tsx` が持つ）。
   */
   const viewParam = urlParams.get('view');
   /*
@@ -116,7 +119,14 @@ export default function ActivityLogPage() {
     ? 'timeline' : 'project';
   const setView = (v: LogView) => {
     const next = new URLSearchParams(urlParams);
-    if (v === 'project') next.delete('view'); else next.set('view', v);
+    /*
+      ⚠️ 案件別へ切り替えるときは `sort` も消す（実ブラウザで見つけた穴）。
+      上の決めごとで「`view` が無くて `sort=next_action` なら時系列」としているため、
+      `?sort=next_action` で入ってきた画面で「案件別」を押しても `view` を消すだけでは
+      **時系列のまま動かなかった**。`sort` は入口の合図で、時系列の並び順そのものは
+      `LogTab` のローカル state が持ち続けるので、ここで消しても並び順は失われない
+    */
+    if (v === 'project') { next.delete('view'); next.delete('sort'); } else next.set('view', v);
     setUrlParams(next, { replace: true });
   };
 
@@ -148,12 +158,17 @@ export default function ActivityLogPage() {
     enabled: tab === 'performance',
   });
 
-  const { data: usersData } = useQuery<{ data: StaffUser[] }>({
-    queryKey: ['users-list'],
-    queryFn: async () => (await api.get('/auth/users')).data,
-    enabled: tab === 'performance',
-  });
-  const staffUsers = (usersData?.data ?? []).filter((u) => u.role === 'staff' || u.role === 'system_admin');
+  /*
+    目標設定ダイアログに渡す人の一覧。記録タブの担当者の絞り込みと**同じ鍵・同じ口**
+    （`activityLog/useAssignees.ts`）。⚠️ 以前は `GET /auth/users` を叩いていたが、
+    あれは開発用のログイン一覧で本番・検証（`AUTH_MODE=password`）では 400 を返す
+  */
+  const { data: usersData } = useUsersList(tab === 'performance');
+  // `GET /users` は有効でない人も返す（旧 `/auth/users` は有効な人だけだった）ので、
+  // 目標を立てる相手は有効な人に絞って以前と同じ顔ぶれにする
+  const staffUsers: StaffUser[] = (usersData?.data ?? []).filter(
+    (u) => (u.role === 'staff' || u.role === 'system_admin') && (u.status ?? 'active') === 'active',
+  );
 
   return (
     <div className="flex flex-col gap-4 p-3 lg:gap-5 lg:p-6">
