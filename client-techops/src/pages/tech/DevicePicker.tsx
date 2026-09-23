@@ -1,13 +1,15 @@
 // 技術資料 ②映像パッチ — 機材の候補（設計: docs/design/v4/tech-docs.md §6②「機材を選ぶ」）。
 // 先頭に検索欄、下に設置場所ごとの機材、末尾に「増設機材として手入力」。
 // 増設機材を選んだセルは自由入力になり、右に「増設」の印が出る（PatchRowExtras.tsx）。
+// 名称に TRK が付く系統（AV-1〜AV-9・SW-CP など）は機材ではなく端子盤として、候補の最後にまとめ、
+// 選んだセルには「端子盤」の印を出す（patchDerive.ts の isTerminalDevice）。
 import { useRef, useState } from "react";
 import { Check, ChevronDown, Plus, Search } from "lucide-react";
 import BufferedInput from "@/components/editor/BufferedInput";
 import type { PatchDeviceOption } from "@gmo-onair/shared/src/tech/types";
-import { deviceSubLabel, groupDevices, type PanelKinds } from "./patchDerive";
+import { deviceSubLabel, groupDevices, isTerminalDevice, type PanelKinds } from "./patchDerive";
 import { usePopoverDismiss } from "./patchPopover";
-import { ExtraTag } from "./PatchRowExtras";
+import { ExtraTag, TerminalTag } from "./PatchRowExtras";
 
 interface Props {
   /** いま入っている機材名 */
@@ -33,6 +35,7 @@ export function DevicePicker({
 
   const groups = groupDevices(devices, query);
   const typed = query.trim();
+  const isTerminal = !isExtra && isTerminalDevice(devices.find((d) => d.device_name === deviceName));
 
   // 増設機材のセルは自由入力。台帳に無い機材なので候補から選び直すこともできる
   if (isExtra) {
@@ -79,8 +82,9 @@ export function DevicePicker({
         }`}
       >
         <span className={`min-w-0 flex-1 truncate text-list ${deviceName ? "text-foreground" : "text-muted-foreground"}`}>
-          {deviceName || "機材を選ぶ"}
+          {deviceName || "機材・端子盤"}
         </span>
+        {isTerminal && <TerminalTag />}
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
       </button>
       {open && (
@@ -112,12 +116,13 @@ function DeviceList({
       <div className="p-2">
         <div className="flex h-9 items-center gap-2 rounded-control border border-primary-border bg-primary-surface px-2.5">
           <Search className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
-          <BufferedInput
+          {/* 1文字ごとに絞り込む（BufferedInput は確定するまで値を渡さないので、検索には使わない） */}
+          <input
             value={query}
-            onCommit={onQuery}
+            onChange={(e) => onQuery(e.target.value)}
             autoFocus
-            aria-label="機材名で検索"
-            placeholder="機材名で検索"
+            aria-label="機材・端子盤の名前で検索"
+            placeholder="機材・端子盤の名前で検索"
             className="min-w-0 flex-1 border-0 bg-transparent text-list text-foreground outline-none"
           />
         </div>
@@ -125,7 +130,7 @@ function DeviceList({
       <div className="max-h-64 overflow-y-auto">
         {groups.length === 0 && (
           <p className="px-3 py-3 text-sub text-muted-foreground">
-            この名前の機材はパッチ盤にありません。下の「増設機材として手入力」で入力してください。
+            この名前の機材・端子盤はパッチ盤にありません。下の「増設機材として手入力」で入力してください。
           </p>
         )}
         {groups.map((g) => (

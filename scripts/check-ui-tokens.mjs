@@ -1070,7 +1070,7 @@ const BASELINE = {
       "client-equipment": 45,
       "client-live": 4,
       "client-techops": 171,
-      "client-wiki": 40,
+      "client-wiki": 58,
       "shared": 4
     }
   };
