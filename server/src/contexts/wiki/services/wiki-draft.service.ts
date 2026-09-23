@@ -24,7 +24,7 @@ import {
 } from './wiki-ai.constants';
 import { WikiDraftSchema, WIKI_DRAFT_SYSTEM, buildDraftPrompt } from './wiki-ai-prompts';
 import { wikiAdviceFor } from './wiki-ai-digest.service';
-import { markGapWrittenTx, readOpenGapFor } from './wiki-ai-gap.service';
+import { markGapWrittenTx, readOpenGapFor, releaseGapClaim } from './wiki-ai-gap.service';
 import { assertOwnThread, listMessages, markSpawnedPage } from './wiki-ai-thread.service';
 import { savePageInternal, selectPageRow } from './wiki-page.service';
 import { createPage } from './wiki-write.service';
@@ -256,12 +256,26 @@ export async function draftPage(user: WikiUser, input: DraftInput): Promise<Draf
   let pageId: string;
   if (target) {
     pageId = String(target.id);
-    await savePageInternal(
-      pageId,
-      { title: pageTitle || undefined, body_md: bodyMd, status: 'draft', note: 'AI が下書きを作成' },
-      user,
-      { skipAiFeedback: true },
-    );
+    /*
+     * ⚠️ **足りないページから起こすときは、書き換える前に質問を押さえます**（#740 の Codex 指摘・P2）。
+     * 書き換えのあとで結びつけていたころは、AI を待つ間に別の人が質問を片づけると、
+     * 結びつけは断られるのに**下書きは書き換わったまま**でした（新しく作る側は1つの取引なので巻き戻る）。
+     * 押さえる（`open` → `written`）は1文で、取れなければ書き換えずに断ります。
+     * 書き換えが落ちたら押さえを戻します。
+     */
+    const gapId = input.gapId ? String(input.gapId) : null;
+    if (gapId) await withTransaction((tx) => markGapWrittenTx(tx, gapId, pageId, user.id));
+    try {
+      await savePageInternal(
+        pageId,
+        { title: pageTitle || undefined, body_md: bodyMd, status: 'draft', note: 'AI が下書きを作成' },
+        user,
+        { skipAiFeedback: true },
+      );
+    } catch (e) {
+      if (gapId) await releaseGapClaim(gapId, pageId).catch(() => {});
+      throw e;
+    }
   } else {
     /*
      * ⚠️ **質問との結びつけはページを作る取引の中で**（`gap_id`・#735 の再レビュー・Codex 指摘）。
@@ -312,10 +326,6 @@ export async function draftPage(user: WikiUser, input: DraftInput): Promise<Draf
   }
   // 採用の印（条件3）。会話から起こした／足りないページから起こした
   if (input.messageId) await markSpawnedPage(String(input.messageId), pageId);
-  // 既にある下書きに書いたとき（新しく作ったときは上の `createPage` が結びつけ済み）
-  if (target && input.gapId) {
-    await withTransaction((tx) => markGapWrittenTx(tx, String(input.gapId), pageId, user.id));
-  }
 
   return { page: await selectPageRow(pageId), open_questions: openQuestions, ai_output_id: outputId };
 }

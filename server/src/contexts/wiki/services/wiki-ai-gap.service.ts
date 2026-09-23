@@ -198,6 +198,21 @@ export async function assertGapOpen(gapId: string, db: Pick<TxClient, 'queryOne'
 }
 
 /**
+ * 先に結びつけた質問を `open` に戻す（**そのページに結びつけたときだけ**）。
+ * 既にある下書きに AI で書くとき、質問を先に押さえてからページを書き換えるので、
+ * 書き換えが落ちたときにここで戻します（`wiki-draft.service.ts`）。
+ */
+export async function releaseGapClaim(gapId: string, pageId: string): Promise<void> {
+  await queryOne(
+    `UPDATE wiki_ai_gaps
+        SET status = 'open', page_id = NULL, resolved_by = NULL, resolved_at = NULL
+      WHERE id = ? AND page_id = ? AND status = 'written'
+      RETURNING id`,
+    [gapId, pageId],
+  );
+}
+
+/**
  * 同じ結びつけを、**ページを作る取引の中で**行う（Codex レビュー指摘・#735）。
  *
  * ⚠️ **ここでは握りつぶしません。** 結びつけに失敗したらページごと巻き戻すのが

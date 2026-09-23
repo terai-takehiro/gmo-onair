@@ -86,7 +86,7 @@ async function assertManageableSpace(user: WikiUser, spaceId: string): Promise<R
  */
 async function lockManageableSpaceTx(tx: TxClient, user: WikiUser, spaceId: string): Promise<Row> {
   const row = await tx.queryOne(
-    `SELECT id, visibility, owner_user_id, updated_at
+    `SELECT id, name, description, visibility, owner_user_id, sort_order, updated_at
        FROM wiki_spaces WHERE id = ? AND deleted_at IS NULL FOR UPDATE`,
     [spaceId],
   );
@@ -249,25 +249,18 @@ export interface UpdateSpaceInput {
  * 前の顔ぶれがそのまま戻るほうが事故が少ないためです。
  */
 export async function updateSpace(user: WikiUser, spaceId: string, input: UpdateSpaceInput): Promise<Row> {
-  const current = await assertManageableSpace(user, spaceId);
+  await assertManageableSpace(user, spaceId);
   const has = (k: keyof UpdateSpaceInput) => Object.prototype.hasOwnProperty.call(input, k);
 
-  const name = has('name') ? cleanName(input.name) : String(current.name);
-  const description = has('description') ? cleanDescription(input.description) : (current.description as string | null);
-  const visibility = has('visibility') ? cleanVisibility(input.visibility) : (current.visibility as WikiSpaceVisibility);
-  /*
-   * ⚠️ **担当が変わらないときは検査しません。** 画面は保存のたびに担当も送るので、
-   * 担当があとで Wiki の権限を外された・退職したスペースでは、名前を直すだけの保存まで
-   * 断られてしまいます。検査するのは、新しく選び直したときだけです。
-   */
-  const currentOwner = (current.owner_user_id as string | null) ?? null;
-  const ownerChanged = has('owner_user_id') && String(input.owner_user_id ?? '') !== String(currentOwner ?? '');
-  const owner = ownerChanged ? await cleanOwner(input.owner_user_id) : currentOwner;
-  let sortOrder = Number(current.sort_order ?? 0);
+  // 渡された値の形の検査は先に（錠を持ったまま待たせない）
+  const givenName = has('name') ? cleanName(input.name) : null;
+  const givenDescription = has('description') ? cleanDescription(input.description) : undefined;
+  const givenVisibility = has('visibility') ? cleanVisibility(input.visibility) : null;
+  let givenSort: number | null = null;
   if (has('sort_order')) {
     const n = Number(input.sort_order);
     if (!Number.isInteger(n) || n < 0 || n > 100000) throw new ValidationError('並び順は0以上の整数で入れてください。');
-    sortOrder = n;
+    givenSort = n;
   }
 
   await withTransaction(async (tx) => {
@@ -280,6 +273,25 @@ export async function updateSpace(user: WikiUser, spaceId: string, input: Update
      */
     const locked = await lockManageableSpaceTx(tx, user, spaceId);
     checkOptimisticLock(input.expected_updated_at, { updated_at: locked.updated_at, updated_by: null }, user.id, 'このスペース');
+
+    /*
+     * ⚠️ **渡されなかった項目は、錠を取ったあとの行（`locked`）から埋めます**（#740 の Codex 指摘・P2）。
+     * 錠の前に読んだ値で埋めていたころは、`expected_updated_at` を付けない部分の保存
+     * （名前だけ、など）が、その間に別の人が変えた閲覧範囲や担当を**古い値に戻して**いました。
+     */
+    const name = givenName ?? String(locked.name);
+    const description = givenDescription !== undefined ? givenDescription : (locked.description as string | null);
+    const visibility = givenVisibility ?? (locked.visibility as WikiSpaceVisibility);
+    const sortOrder = givenSort ?? Number(locked.sort_order ?? 0);
+    /*
+     * ⚠️ **担当が変わらないときは検査しません。** 画面は保存のたびに担当も送るので、
+     * 担当があとで Wiki の権限を外された・退職したスペースでは、名前を直すだけの保存まで
+     * 断られてしまいます。検査するのは、新しく選び直したときだけです。
+     */
+    const currentOwner = (locked.owner_user_id as string | null) ?? null;
+    const ownerChanged = has('owner_user_id') && String(input.owner_user_id ?? '') !== String(currentOwner ?? '');
+    const owner = ownerChanged ? await cleanOwner(input.owner_user_id) : currentOwner;
+
     await tx.execute(
       `UPDATE wiki_spaces
           SET name = ?, description = ?, visibility = ?, owner_user_id = ?, sort_order = ?, updated_at = NOW()
