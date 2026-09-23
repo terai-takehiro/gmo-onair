@@ -12686,7 +12686,7 @@
    "model": "32MCK",
    "jack_count": 32,
    "kind": "trunk",
-   "note": "混在盤: 1〜12(A)/1〜8(B)は各CP(SW/VTR/VE)への多芯トランク、24〜32は同期(Adv.BB/BB/Try Level Sync)の分配。13〜23は無記入。24〜32の塗りは赤橙/橙/灰でピンクではないため highlight=false とし fill に色を記録",
+   "note": "混在盤: 1〜12(A)/1〜8(B)は各CP(SW/VTR/VE)への多芯トランク、24〜32は同期(Adv.BB/BB/Tri-Level Sync)の分配。13〜23は無記入。24〜32の塗りは赤橙/橙/灰でピンクではないため highlight=false とし fill に色を記録",
    "jacks": [
     {
      "no": 1,
@@ -12920,7 +12920,7 @@
     {
      "no": 29,
      "row": "A",
-     "group": "Try Level Sync",
+     "group": "Tri-Level Sync",
      "label": "1",
      "single": true,
      "highlight": false,
@@ -12929,7 +12929,7 @@
     {
      "no": 30,
      "row": "A",
-     "group": "Try Level Sync",
+     "group": "Tri-Level Sync",
      "label": "2",
      "single": true,
      "highlight": false,
@@ -12938,7 +12938,7 @@
     {
      "no": 31,
      "row": "A",
-     "group": "Try Level Sync",
+     "group": "Tri-Level Sync",
      "label": "3",
      "single": true,
      "highlight": false,
@@ -12947,7 +12947,7 @@
     {
      "no": 32,
      "row": "A",
-     "group": "Try Level Sync",
+     "group": "Tri-Level Sync",
      "label": "4",
      "single": true,
      "highlight": false,
@@ -13185,7 +13185,7 @@
     {
      "no": 29,
      "row": "B",
-     "group": "Try Level Sync",
+     "group": "Tri-Level Sync",
      "label": "5",
      "single": true,
      "highlight": false,
@@ -13194,7 +13194,7 @@
     {
      "no": 30,
      "row": "B",
-     "group": "Try Level Sync",
+     "group": "Tri-Level Sync",
      "label": "6",
      "single": true,
      "highlight": false,
@@ -13203,7 +13203,7 @@
     {
      "no": 31,
      "row": "B",
-     "group": "Try Level Sync",
+     "group": "Tri-Level Sync",
      "label": "7",
      "single": true,
      "highlight": false,
@@ -13212,7 +13212,7 @@
     {
      "no": 32,
      "row": "B",
-     "group": "Try Level Sync",
+     "group": "Tri-Level Sync",
      "label": "8",
      "single": true,
      "highlight": false,

@@ -14,7 +14,7 @@
 -- ============================================================
 
 INSERT INTO qsheet_patch_panels (id, name, jack_count, kind, location, model, note, sort_order)
-VALUES ('pp_vjp1900', 'VJP1900', 32, 'trunk', '第1調整室', '32MCK', 'SW-CP・VTR-CP・VE-CP の多芯トランクと同期（Adv.BB・BB・Try Level Sync ※図面の印字のまま）', 19)
+VALUES ('pp_vjp1900', 'VJP1900', 32, 'trunk', '第1調整室', '32MCK', 'SW-CP・VTR-CP・VE-CP の多芯トランクと同期（Adv.BB・BB・Tri-Level Sync）', 19)
 ON CONFLICT DO NOTHING;
 
 INSERT INTO qsheet_patch_jacks (id, panel_id, jack_no, jack_row)
@@ -1621,14 +1621,14 @@ FROM (VALUES
   ('VJP1900', 27, 'B', 'BB', '5', 'シングルジャック、図面で色付き'),
   ('VJP1900', 28, 'A', 'BB', '3', 'シングルジャック、図面で色付き'),
   ('VJP1900', 28, 'B', 'BB', '6', 'シングルジャック、図面で色付き'),
-  ('VJP1900', 29, 'A', 'Try Level Sync', '1', 'シングルジャック、図面で色付き'),
-  ('VJP1900', 29, 'B', 'Try Level Sync', '5', 'シングルジャック、図面で色付き'),
-  ('VJP1900', 30, 'A', 'Try Level Sync', '2', 'シングルジャック、図面で色付き'),
-  ('VJP1900', 30, 'B', 'Try Level Sync', '6', 'シングルジャック、図面で色付き'),
-  ('VJP1900', 31, 'A', 'Try Level Sync', '3', 'シングルジャック、図面で色付き'),
-  ('VJP1900', 31, 'B', 'Try Level Sync', '7', 'シングルジャック、図面で色付き'),
-  ('VJP1900', 32, 'A', 'Try Level Sync', '4', 'シングルジャック、図面で色付き'),
-  ('VJP1900', 32, 'B', 'Try Level Sync', '8', 'シングルジャック、図面で色付き')
+  ('VJP1900', 29, 'A', 'Tri-Level Sync', '1', 'シングルジャック、図面で色付き'),
+  ('VJP1900', 29, 'B', 'Tri-Level Sync', '5', 'シングルジャック、図面で色付き'),
+  ('VJP1900', 30, 'A', 'Tri-Level Sync', '2', 'シングルジャック、図面で色付き'),
+  ('VJP1900', 30, 'B', 'Tri-Level Sync', '6', 'シングルジャック、図面で色付き'),
+  ('VJP1900', 31, 'A', 'Tri-Level Sync', '3', 'シングルジャック、図面で色付き'),
+  ('VJP1900', 31, 'B', 'Tri-Level Sync', '7', 'シングルジャック、図面で色付き'),
+  ('VJP1900', 32, 'A', 'Tri-Level Sync', '4', 'シングルジャック、図面で色付き'),
+  ('VJP1900', 32, 'B', 'Tri-Level Sync', '8', 'シングルジャック、図面で色付き')
 ) AS v(panel_name, jack_no, jack_row, device_name, label, note)
 JOIN qsheet_patch_panels p ON p.name = v.panel_name
 WHERE j.panel_id = p.id
