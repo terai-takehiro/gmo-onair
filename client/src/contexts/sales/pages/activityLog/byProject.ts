@@ -92,7 +92,7 @@ export type DueCounts = Record<DueFilter, number>;
  * - `actions`  … 未完了の次のアクションの件数（**チップの数字はこちら**）
  * - `projects` … その区分のやることを1件以上持つ案件の数（押した先に並ぶまとまりの数・小さく添える）
  *
- * **サーバーは `due` の絞り込みを無視し、`search` と `user_id` だけを効かせて数えます**
+ * **サーバーは `due` の絞り込みを無視し、`search`・`user_id`・`owner_id` だけを効かせて数えます**
  * （どの区分を選んでいても全区分の件数を出すため）。`project_id` が null の
  * まとまり（案件にひも付かない記録）は `projects` では1件として数えます。
  *
@@ -114,6 +114,8 @@ export interface ByProjectParams {
   due: DueFilter;
   search: string;
   userId: string;
+  /** 案件の担当者（`owner_id`）。記録者の `userId` とは別。空文字＝すべて */
+  ownerId: string;
   page: number;
 }
 
@@ -124,13 +126,14 @@ function toParams(p: ByProjectParams, limit = LIMIT): Record<string, string | nu
   if (p.due !== 'all') q.due = p.due;
   if (p.search) q.search = p.search;
   if (p.userId) q.user_id = p.userId;
+  if (p.ownerId) q.owner_id = p.ownerId;
   return q;
 }
 
 /** 案件別の一覧。⚠️ `signal` を渡す（渡さないと絞り込みを変えても前の通信が走り続ける） */
 export function useByProject(p: ByProjectParams, enabled: boolean) {
   return useQuery<ByProjectResponse>({
-    queryKey: ['activity-by-project', p.due, p.search, p.userId, p.page],
+    queryKey: ['activity-by-project', p.due, p.search, p.userId, p.ownerId, p.page],
     queryFn: async ({ signal }) =>
       (await api.get('/activity-logs/by-project', { params: toParams(p), signal })).data,
     enabled,

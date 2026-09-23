@@ -58,6 +58,8 @@ export interface ActivityLogFilter {
   projectId?: string;
   customerId?: string;
   userId?: string;
+  /** 案件の担当者（`projects.assigned_to`）。`userId`（記録者）とは別。案件にひも付かない記録は落ちる */
+  ownerId?: string;
   activityType?: string;
   search?: string;
   /** 'ai' = AI (MCP) 取込のみ / 'human' = 手入力のみ。判定は mcp_audit_log 照合 (OAuth 本人名義でも検出) */
@@ -79,6 +81,7 @@ export class ActivityLogService {
     if (filter.projectId) { where += ' AND a.project_id = ?'; params.push(filter.projectId); }
     if (filter.customerId) { where += ' AND a.customer_id = ?'; params.push(filter.customerId); }
     if (filter.userId) { where += ' AND a.user_id = ?'; params.push(filter.userId); }
+    if (filter.ownerId) { where += ' AND p.assigned_to = ?'; params.push(filter.ownerId); }
     if (filter.activityType) { where += ' AND a.activity_type = ?'; params.push(filter.activityType); }
     // 検索は件名・詳細に加えて 案件名・顧客名 も対象 (「あの会社とのやり取り」を探せるように)
     if (filter.search) {
@@ -689,7 +692,15 @@ export class ActivityLogService {
    * 前はここに除外が無く、**失注案件のやることが永久に帯へ並んでいました**
    * — 押して片づけない限り消えないので、本当にやるべきものが埋もれます。
    */
-  async getUpcomingActions(userId: string, daysAhead: number = 7) {
+  /**
+   * @param userId  記録者（`activity_logs.user_id`）。画面の `?user=`、未指定なら呼んだ本人
+   * @param ownerId 案件の担当者（`projects.assigned_to`）。画面の `?owner=`。
+   *   指定すると案件に紐づかない記録は出ない（一覧の `owner_id` と同じ意味）
+   */
+  async getUpcomingActions(userId: string, daysAhead: number = 7, ownerId?: string) {
+    const params: unknown[] = [userId, daysAhead];
+    let ownerSql = '';
+    if (ownerId) { ownerSql = ' AND p.assigned_to = ?'; params.push(ownerId); }
     return await queryAll(
       `SELECT a.*, p.code as project_code, p.name as project_name, c.name as customer_name
        FROM activity_logs a
@@ -697,9 +708,9 @@ export class ActivityLogService {
        LEFT JOIN companies c ON c.id = a.customer_id
        WHERE ${OPEN_NEXT_ACTION_SQL}
          AND a.user_id = ?
-         AND a.next_action_date <= (CURRENT_DATE + (? || ' days')::interval)::text
+         AND a.next_action_date <= (CURRENT_DATE + (? || ' days')::interval)::text${ownerSql}
        ORDER BY a.next_action_date ASC`,
-      [userId, daysAhead]
+      params
     );
   }
 }

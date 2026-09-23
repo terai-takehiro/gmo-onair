@@ -60,6 +60,18 @@ export interface ByProjectFilter {
    * 理由は `OWNER_SQL` の頭注。
    */
   userId?: string;
+  /**
+   * **案件の担当者**（`projects.assigned_to`）。`userId`（記録者）とは**別の絞り込み**です。
+   *
+   * 営業担当が「自分の案件」を見たいときに使います。記録者で絞ると、自分が担当でも
+   * **他の人が記録したやり取り（先方からのメールの取込など）が落ちる**ので、
+   * 「自分の案件なのに出ない」になります（#734 で「記録者」と見出しを直したときに残した宿題）。
+   *
+   * ⚠️ **案件にひも付かない記録（`project_id` が NULL）はこの絞り込みで必ず落ちます。**
+   * 案件が無ければ案件の担当者も無いので、「その人の担当」と言えないためです。
+   * 記録した人で拾うと、担当を決めていない記録が「記録した人の担当」に化けます。
+   */
+  ownerId?: string;
 }
 
 /** 区分ごとの件数。`all` は「未完了の次のアクションすべて」（本日+8 以降の `later` も含む） */
@@ -181,7 +193,7 @@ const OWNER_SQL = 'a.user_id';
  * 共通の CTE。**件数を数えるのと1ページ取ってくるのは必ず同じ式**にする
  * （別々に書くと「全12件」と言いながら 8 件しか出ない、という追いにくいずれ方をする）。
  *
- * 効かせるのは `search` と `userId` だけ。**`due` はここに入れません** —
+ * 効かせるのは `search` と `userId` と `ownerId` だけ。**`due` はここに入れません** —
  * `summary` は選んでいる区分にかかわらず全区分の件数を出すので、
  * `due` の絞り込みは一覧を取る側（`grouped` の外）で掛けます。
  */
@@ -189,6 +201,8 @@ function baseCte(filter: ByProjectFilter): { sql: string; params: unknown[] } {
   const params: unknown[] = [];
   let where = 'WHERE a.deleted_at IS NULL';
   if (filter.userId) { where += ` AND ${OWNER_SQL} = ?`; params.push(filter.userId); }
+  // 案件の担当者（`ownerId` の頭注）。`p` は案件の LEFT JOIN なので、案件の無い行はここで落ちる
+  if (filter.ownerId) { where += ' AND p.assigned_to = ?'; params.push(filter.ownerId); }
   // 検索の範囲は既存の一覧（`list()`）と同じ — 案件名・クライアント名・件名・本文
   if (filter.search) {
     where += ' AND (p.name ILIKE ? OR c.name ILIKE ? OR a.subject ILIKE ? OR a.description ILIKE ?)';

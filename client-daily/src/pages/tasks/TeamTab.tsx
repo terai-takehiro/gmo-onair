@@ -33,7 +33,7 @@ const COLUMNS: { key: string; label: string; title?: string }[] = [
   { key: 'overdue_count', label: '期限超過' },
   { key: 'top_priority_count', label: '最優先', title: '重要度 高 × 緊急度 高（最優先）の未対応タスク数' },
   { key: 'unanswered_count', label: '未返答' },
-  { key: 'no_due_count', label: '期限なし' },
+  { key: 'no_due_count', label: '期限未設定' },
   { key: 'private_count', label: '自分だけ' },
 ];
 

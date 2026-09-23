@@ -60,7 +60,7 @@ function Marks({ t, canOpenProject }: { t: MyTask; canOpenProject: boolean }) {
         </span>
       )}
       {/* 期限が無いことは**印として出す**（要件 D9「期限が未設定 N 件」を行でも見せる） */}
-      {!t.due_at && !t.is_completed && <span className="shrink-0 font-bold text-warning">期限なし</span>}
+      {!t.due_at && !t.is_completed && <span className="shrink-0 font-bold text-warning">期限未設定</span>}
     </span>
   );
 }

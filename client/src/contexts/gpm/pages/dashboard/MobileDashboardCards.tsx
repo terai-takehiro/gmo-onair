@@ -47,7 +47,7 @@ export function MobileActiveProjectCard({ p, today }: { p: GpmProjectRow; today:
 
           <span className="mt-1.5 flex items-center justify-between gap-2">
             <span className={cn('text-note font-number', dueTone(due, today))}>
-              {dueLabel(due, today) ?? '期限なし'}
+              {dueLabel(due, today) ?? '期限未設定'}
             </span>
             {p.open_items > 0 && (
               <span className="text-badge rounded-badge-xs bg-destructive-surface px-1.5 py-0.5 text-destructive">

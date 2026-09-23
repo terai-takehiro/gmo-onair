@@ -86,8 +86,7 @@ export function ThreadCardEdit({ a, edit, onClose, focus }: {
       // 空文字は**削除**の合図（サーバーが `null` に落とす）
       next_action: nextAction.trim(),
       next_action_date: nextAction.trim() ? (nextDate || null) : null,
-    });
-    onClose();
+    }, onClose);   // 閉じるのは保存が通ってから（落ちたら入力を残す）
   };
 
   return (

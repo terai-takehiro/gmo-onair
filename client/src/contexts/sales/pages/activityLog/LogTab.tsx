@@ -52,7 +52,7 @@ import { useByProject } from './byProject';
 import { DueChips } from './DueChips';
 import { DUE_LABEL, todayStr, type DueFilter } from './dueState';
 import {
-  readDue, readUser, withDue, withUser, withoutFilters, assigneeOptions,
+  readDue, readUser, readOwner, withDue, withUser, withOwner, withoutFilters, assigneeOptions,
 } from './logParams';
 import { useUsersList } from './useAssignees';
 import type { ActivityLogRow } from './types';
@@ -110,6 +110,8 @@ export function LogTab({
   const [urlParams, setUrlParams] = useSearchParams();
   const due = readDue(urlParams);
   const userFilter = readUser(urlParams);
+  // 案件の担当者（`?owner=`）。記録者（`?user=`）とは別の絞り込み
+  const ownerFilter = readOwner(urlParams);
   const [typeFilter, setTypeFilter] = useState('');
   const [originFilter, setOriginFilter] = useState<OriginFilter>('');
   const [sort, setSort] = useState<SortKey>(initialSort);
@@ -119,14 +121,18 @@ export function LogTab({
   // `?view=` などを古い値で上書きする）。履歴は積まない（`?tab=` と同じ replace）
   const setDue = (k: DueFilter) => { setUrlParams((prev) => withDue(prev, k), { replace: true }); reset(); };
   const setUserFilter = (id: string) => { setUrlParams((prev) => withUser(prev, id), { replace: true }); reset(); };
+  const setOwnerFilter = (id: string) => { setUrlParams((prev) => withOwner(prev, id), { replace: true }); reset(); };
 
   const usersList = useUsersList(true);
   const assignees = assigneeOptions(usersList.data?.data ?? [], currentUser?.id, userFilter);
   const userLabel = assignees.find((o) => o.value === userFilter)?.label ?? '';
+  // 担当者の選択肢は記録者と**同じ人の一覧**から作る（営業の人）。一覧に居ない id の呼び名だけ変える
+  const owners = assigneeOptions(usersList.data?.data ?? [], currentUser?.id, ownerFilter, '指定の担当者');
+  const ownerLabel = owners.find((o) => o.value === ownerFilter)?.label ?? '';
 
   // ── 案件別 ────────────────────────────────────────────────
   const byProject = useByProject(
-    { due, search: appliedSearch, userId: userFilter, page },
+    { due, search: appliedSearch, userId: userFilter, ownerId: ownerFilter, page },
     view === 'project',
   );
   const summary = byProject.data?.summary;
@@ -134,7 +140,7 @@ export function LogTab({
 
   // ── 時系列 ────────────────────────────────────────────────
   const timeline = useQuery<ActivityLogListResponse>({
-    queryKey: ['activity-logs', page, appliedSearch, typeFilter, originFilter, sort, userFilter],
+    queryKey: ['activity-logs', page, appliedSearch, typeFilter, originFilter, sort, userFilter, ownerFilter],
     // ⚠️ `signal` を渡す（渡さないと、絞り込みを変えても前の重い通信が走り続ける）
     queryFn: async ({ signal }) => {
       const params: Record<string, string | number> = { page, limit: 20 };
@@ -142,6 +148,7 @@ export function LogTab({
       if (typeFilter) params.activity_type = typeFilter;
       if (originFilter) params.origin = originFilter;
       if (userFilter) params.user_id = userFilter;
+      if (ownerFilter) params.owner_id = ownerFilter;
       if (sort !== 'date') params.sort = sort;
       return (await api.get('/activity-logs', { params, signal })).data;
     },
@@ -151,9 +158,16 @@ export function LogTab({
   });
   const rows = timeline.data?.data ?? [];
 
+  // **一覧と同じ記録者・担当者で絞る**（#734 の Codex 指摘。記録者を選ばなければ自分の分）。
+  // 鍵の頭は `activity-upcoming` のまま（保存後の invalidate が前方一致で落とす）
   const { data: upcomingData } = useQuery({
-    queryKey: ['activity-upcoming'],
-    queryFn: async () => (await api.get('/activity-logs/upcoming')).data,
+    queryKey: ['activity-upcoming', userFilter, ownerFilter],
+    queryFn: async () => {
+      const params: Record<string, string> = {};
+      if (userFilter) params.user_id = userFilter;
+      if (ownerFilter) params.owner_id = ownerFilter;
+      return (await api.get('/activity-logs/upcoming', { params })).data;
+    },
     enabled: view === 'timeline',
   });
   const upcoming: ActivityLogRow[] = upcomingData?.data ?? [];
@@ -165,6 +179,8 @@ export function LogTab({
     originFilter, onOriginFilter: (v: OriginFilter) => { setOriginFilter(v); reset(); },
     userFilter, onUserFilter: setUserFilter,
     assignees,
+    ownerFilter, onOwnerFilter: setOwnerFilter,
+    owners,
   };
   const clearAll = () => {
     setSearch(''); setTypeFilter(''); setOriginFilter(''); setSort('date');
@@ -186,7 +202,7 @@ export function LogTab({
   const refetch = () => { if (isProject) byProject.refetch(); else timeline.refetch(); };
 
   const empty = isProject ? groups.length === 0 : rows.length === 0;
-  const filtered = !!appliedSearch || !!userFilter || (view === 'project'
+  const filtered = !!appliedSearch || !!userFilter || !!ownerFilter || (view === 'project'
     ? due !== 'all'
     : !!typeFilter || !!originFilter);
 
@@ -223,6 +239,9 @@ export function LogTab({
             userFilter={userFilter}
             onUserFilter={setUserFilter}
             assignees={assignees}
+            ownerFilter={ownerFilter}
+            onOwnerFilter={setOwnerFilter}
+            owners={owners}
           />
         </>
       ) : (
@@ -253,6 +272,7 @@ export function LogTab({
             keyword={appliedSearch}
             activeFilters={[
               view === 'project' && due !== 'all' ? `期限: ${DUE_LABEL[due]}` : '',
+              ownerFilter ? `担当者: ${ownerLabel}` : '',
               userFilter ? `記録者: ${userLabel}` : '',
               view === 'timeline' && typeFilter ? '種別で絞り込み中' : '',
               view === 'timeline' && originFilter ? `入力元: ${originFilter === 'ai' ? 'AI作成' : '手入力'}` : '',

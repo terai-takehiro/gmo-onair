@@ -73,7 +73,7 @@ export function TaskRow({
       <RowSlot
         w={96}
         className={cn('text-sub font-number', task.is_completed ? 'text-muted-foreground' : dueTone(due, today))}
-        placeholder="期限なし"
+        placeholder="期限未設定"
       >
         {dueLabel(due, today)}
       </RowSlot>
@@ -146,7 +146,7 @@ export function TaskCard({
       <div className="flex items-center gap-2 pl-[38px]">
         <p className="text-sub min-w-0 flex-1 truncate">
           <span className={cn('font-number', task.is_completed ? 'text-muted-foreground' : dueTone(due, today))}>
-            {dueLabel(due, today) ?? '期限なし'}
+            {dueLabel(due, today) ?? '期限未設定'}
           </span>
           {task.assigned_to_name && (
             <span className="text-muted-foreground"> ・ {task.assigned_to_name}</span>

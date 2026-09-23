@@ -23,6 +23,8 @@ router.get('/', async (req, res) => {
     projectId: req.query.project_id as string,
     customerId: req.query.customer_id as string,
     userId: req.query.user_id as string,
+    // 案件の担当者で絞る（by-project の owner_id と同じ意味。user_id＝記録者とは別）
+    ownerId: (req.query.owner_id as string) || undefined,
     activityType: req.query.activity_type as string,
     origin: req.query.origin === 'ai' ? 'ai' as const
       : req.query.origin === 'human' ? 'human' as const : undefined,
@@ -50,7 +52,8 @@ router.get('/', async (req, res) => {
  *
  * 返りは `paginatedResponse` の形（`success` / `data` / `pagination`）に、
  * **同じ階層で `summary`** を足します（絞り込みチップの件数・#727 の宿題①）。
- * `summary` は `due` を無視し、`search` と `user_id` だけを効かせます —
+ * `owner_id` は**案件の担当者**（`projects.assigned_to`）で絞ります（記録者の `user_id` とは別）。
+ * `summary` は `due` を無視し、`search`・`user_id`・`owner_id` だけを効かせます —
  * チップはどの区分を選んでいても全区分の件数を出すためです。
  */
 router.get('/by-project', async (req, res, next) => {
@@ -61,6 +64,8 @@ router.get('/by-project', async (req, res, next) => {
         due: parseDueBucket(req.query.due),
         search,
         userId: (req.query.user_id as string) || undefined,
+        // 案件の担当者（projects.assigned_to）。user_id（記録者）とは別の絞り込み
+        ownerId: (req.query.owner_id as string) || undefined,
       },
       page, limit, offset,
     );
@@ -71,9 +76,16 @@ router.get('/by-project', async (req, res, next) => {
   } catch (e) { next(e); }
 });
 
+/*
+ * 次のアクション予定の帯。**一覧と同じ絞り込みに従う**（#734 の Codex 指摘）。
+ * `user_id`（記録者）を渡さなければ呼んだ本人、`owner_id`（案件の担当者）は任意。
+ * 従わないと、別の人で絞った一覧の上に自分の予定が並び、「すべて見る」で消える。
+ */
 router.get('/upcoming', async (req, res) => {
   const days = parseInt(req.query.days as string) || 7;
-  res.json({ success: true, data: await activityLogService.getUpcomingActions(req.user!.id, days) });
+  const userId = (req.query.user_id as string) || req.user!.id;
+  const ownerId = (req.query.owner_id as string) || undefined;
+  res.json({ success: true, data: await activityLogService.getUpcomingActions(userId, days, ownerId) });
 });
 
 /*
