@@ -816,6 +816,10 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   **Code Review が1巡も走らないままマージした PR**。作成直後に Codex の利用上限の返事が付き、Security Review だけが
   `ff6fb84` で完了（指摘なし）。CI（checks・build）は緑。AI の整形の出力の形（`body_struct` に `sections`）・指示（`activity-v5`）・
   画面の描き方を変えた PR なので、**次に Codex が走る PR で `activity-struct.ts`・`activity-ai.service.ts`・`thread/ThreadBody.tsx` の差分も読ませること**
+- **#745**（`feat(sales): BOXの案件フォルダ名の頭に実施日を付けた`・2026-09-24）— **Code Review が1巡も走らないままマージした PR**。
+  作成 09:52 / CI（checks・build）緑 09:54 / Security Review 完了（`41fe5cb`・指摘なし）09:56 / マージ 09:58。開いていたのは約6分で、
+  Code Review は付く前にマージされた（利用上限のコメントも無し）。migration 310（`projects.box_folder_name`）・日次ジョブで既存の BOX フォルダを
+  改名する PR なので、**次に Codex が走る PR で `box-folder-name.service.ts`・`box-folder.service.ts`・`box-lost-cleanup.service.ts` の差分も読ませること**
 - **#251**（`feat(sales): 取引先マスターをv4に作り直し、権限バグ2件を修正`）— 作成から
   約1分でCI green・自動マージ。レビュー0件のままマージされた
 - **#252**（`fix(sales): 取引先名を2行折り返しに変更・タブレット幅の崩れを修正`）— 作成から

@@ -1,1 +1,0 @@
-**PR #745（BOXの案件フォルダ名に実施日）が Code Review 0件のままマージされたことを棚卸しに記録した**。Security Review は指摘なし・CI は緑だったが、開いていた約6分のあいだに Code Review が付かなかった。次に Codex が走る PR で `box-folder-name.service.ts` ほかの差分も読ませる旨を `docs/reviews/codex-findings-v4.md` に残した。
