@@ -307,7 +307,7 @@ describe('台帳から外したあとも BOX を片づけられること', () =>
 
   it('名寄せの索引にも、外した案件を入れる', () => {
     // 索引から落ちると、外したぶんのフォルダは名前で結び付け直せない
-    expect(BOX).toContain("'SELECT id, code, gls_number, name FROM projects'");
+    expect(BOX).toContain("'SELECT id, code, gls_number, name, event_start, event_end FROM projects'");
   });
 });
 

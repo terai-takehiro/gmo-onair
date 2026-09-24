@@ -45,6 +45,7 @@ import {
   TIDY_CANDIDATE_DAYS, TIDY_AUTO_LOST_DAYS,
 } from '../../sales/services/project-health';
 import { archiveDoneProjectFolders } from '../../sales/services/box-lost-cleanup.service';
+import { syncAllProjectFolderNames } from '../../sales/services/box-folder-name.service';
 import { expireOpenProposals, settleDueProposals } from '../../qsheet/ai/settle.service';
 import { runMonthlyReviewIfDue, AI_REVIEW_JOB_KEY, AI_REVIEW_NOTIFY_TEMPLATE_ID } from '../../qsheet/ai/monthly-review.service';
 import {
@@ -545,6 +546,18 @@ async function projectTidy(_today: string): Promise<NotifyInput[]> {
     boxDone = (await archiveDoneProjectFolders()).moved;
   } catch (e) {
     console.warn('[scheduler] 終了案件の BOX 引っ越しに失敗:', (e as Error).message);
+  }
+
+  /*
+   * (e) **BOX フォルダ名を案件の値に合わせる**（名前の頭が実施日・2026-09-24〜）。
+   * 既存フォルダの付け直しと、画面以外（Excel 取込など）で実施日が動いた案件の
+   * 取りこぼしをここで拾う。時間で区切るので、多いときは翌朝以降に続きが進む。
+   * (d) と同じく、BOX が落ちていても日次ジョブは止めない。
+   */
+  try {
+    await syncAllProjectFolderNames();
+  } catch (e) {
+    console.warn('[scheduler] BOX フォルダ名の付け直しに失敗:', (e as Error).message);
   }
 
   // (b) 自動見送りを候補より**先に**。90日を超えた行が候補の通知と重ならないようにする

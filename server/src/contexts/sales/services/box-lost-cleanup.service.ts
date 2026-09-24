@@ -41,7 +41,9 @@ import { execute, queryOne, queryAll } from '../../../shared/db/connection';
 import {
   getBoxClient, isBoxConfigured, extractFolderId, ensureSubfolder, getBoxFolderUrl, listFolderItems,
 } from '../../../shared/services/box';
-import { createProjectFolderTree, sanitizeFolderName, INTERNAL_PREFIX, EXTERNAL_PREFIX } from './box-folder.service';
+import {
+  createProjectFolderTree, sanitizeFolderName, buildProjectFolderName, INTERNAL_PREFIX, EXTERNAL_PREFIX,
+} from './box-folder.service';
 import { jstDate } from '../../../shared/utils/jst';
 
 /** 失注・見送りの置き場。**両方の親フォルダの直下**に1つずつ作る */
@@ -257,8 +259,11 @@ export async function deleteEmptyTree(
 function internalParentId(): string | null { return process.env.BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL || null; }
 function externalParentId(): string | null { return process.env.BOX_PROJECT_PARENT_FOLDER_ID || null; }
 
-/** 触ってはいけない ID の一覧（親フォルダと、別用途の取込フォルダ） */
-function forbiddenFolderIds(): (string | null | undefined)[] {
+/**
+ * 触ってはいけない ID の一覧（親フォルダと、別用途の取込フォルダ）。
+ * フォルダ名の付け直し（`box-folder-name.service.ts`）も同じ一覧を使う。
+ */
+export function forbiddenFolderIds(): (string | null | undefined)[] {
   return [
     internalParentId(),
     externalParentId(),
@@ -308,6 +313,7 @@ function projectNumbers(row: ProjectRow): string[] {
 
 interface ProjectRow {
   id: string; code?: string | null; name?: string | null; gls_number?: string | null;
+  event_start?: string | null; event_end?: string | null;
   box_url_internal?: string | null; box_url_external?: string | null;
   box_cleanup_state?: string | null;
   /** **生きている引き合いかどうか**の判断に使う（下の `emptyOnly`） */
@@ -325,7 +331,8 @@ interface ProjectRow {
  */
 async function loadProject(projectId: string): Promise<ProjectRow | null> {
   return (await queryOne(
-    `SELECT id, code, name, gls_number, box_url_internal, box_url_external, box_cleanup_state,
+    `SELECT id, code, name, gls_number, event_start, event_end,
+            box_url_internal, box_url_external, box_cleanup_state,
             stage, deleted_at, box_done_at
        FROM projects WHERE id = ?`,
     [projectId],
@@ -349,7 +356,10 @@ export const NON_PROJECT_FOLDERS = [
 ] as const;
 
 /** 名寄せ・安全弁が使う案件の最小の姿 */
-export interface ProjectNaming { code?: string | null; gls_number?: string | null; name?: string | null }
+export interface ProjectNaming {
+  code?: string | null; gls_number?: string | null; name?: string | null;
+  event_start?: string | null; event_end?: string | null;
+}
 
 /**
  * **このアプリなら、その案件のフォルダをこう名付けたはず**（純関数）。
@@ -369,7 +379,11 @@ export interface ProjectNaming { code?: string | null; gls_number?: string | nul
 export function expectedFolderNames(p: ProjectNaming): string[] {
   const name = String(p.name ?? '').trim();
   if (!name) return [];
-  const out: string[] = [];
+  /*
+   * **いまの形**（`{実施日}_{番号}_{案件名}`・2026-09-24〜）を先頭に。
+   * その下は**前の形**（`{番号}_{案件名}`）— 付け直しが済むまでは前の名前のまま残る。
+   */
+  const out: string[] = [buildProjectFolderName(p)];
   for (const key of [p.gls_number, p.code]) {
     const k = String(key ?? '').trim();
     if (k) out.push(sanitizeFolderName(`${k}_${name}`));
@@ -428,8 +442,8 @@ export async function relinkProjectFolders(): Promise<RelinkResult> {
    * 「外した案件と現役の案件を取り違える」ことはありません。
    */
   const projects = await queryAll(
-    'SELECT id, code, gls_number, name FROM projects',
-  ) as { id: string; code: string | null; gls_number: string | null; name: string | null }[];
+    'SELECT id, code, gls_number, name, event_start, event_end FROM projects',
+  ) as unknown as (ProjectNaming & { id: string })[];
 
   const AMBIGUOUS = '__ambiguous__';
   const byName = new Map<string, string>();
@@ -626,8 +640,7 @@ export async function restoreLostProjectFolders(projectId: string): Promise<void
   if (!row?.box_cleanup_state) return;
 
   if (row.box_cleanup_state === 'deleted') {
-    const idCode = row.gls_number || row.code || row.id;
-    const pair = await createProjectFolderTree(String(idCode), String(row.name ?? ''));
+    const pair = await createProjectFolderTree({ ...row, code: row.code || row.id });
     const sets = ['box_cleanup_state = NULL', 'box_cleanup_at = NULL', 'box_cleanup_note = NULL'];
     const params: unknown[] = [];
     if (pair.internal) { sets.push('box_url_internal = ?'); params.push(pair.internal.folderUrl); }

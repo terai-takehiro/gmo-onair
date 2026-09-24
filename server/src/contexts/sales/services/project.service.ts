@@ -9,9 +9,9 @@ import type { LegalEntityCode } from '../../platform/services/legal-entity.servi
 import { getOrgTransition } from '../../platform/services/org-transition.service';
 import {
   createProjectFolderTree,
-  renameProjectFolderPair,
   type CustomerType,
 } from './box-folder.service';
+import { syncProjectFolderNameSafe } from './box-folder-name.service';
 import { extractFolderId } from '../../../shared/services/box';
 import { config } from '../../../config';
 import { taxBillingSuffix } from '../../../shared/services/tax-category.service';
@@ -162,15 +162,6 @@ export async function addMemoActivity(
      VALUES (?, ?, ?, ?, 'memo', 'メモ', ?, ?, ?, ?)`,
     [uuidv4(), projectId, customerId || null, userId, body, today.d, userId, userId],
   );
-}
-
-/**
- * BOX フォルダ名のフォーマット: `{idCode}_{案件名}`
- * idCode は GLS 発番済みなら gls_number、未発番なら code (OPP コード)
- */
-function buildProjectFolderName(project: { gls_number?: string | null; code: string; name: string }): string {
-  const idCode = project.gls_number || project.code;
-  return `${idCode}_${project.name}`;
 }
 
 /**
@@ -1370,9 +1361,13 @@ export class ProjectService {
         // `code`/`name` は createCore がトランザクション内で決めた値（採番済みの code・
         // 正規化済みの名前）を、確定した行から読み直す（クロージャで持ち越さない）
         const created = await queryOne(
-          'SELECT code, name, box_url_internal, box_url_external FROM projects WHERE id = ?', [id],
-        ) as { code: string; name: string; box_url_internal: string | null; box_url_external: string | null };
-        const folders = await createProjectFolderTree(created.code, String(created.name));
+          `SELECT code, gls_number, name, event_start, event_end, box_url_internal, box_url_external
+             FROM projects WHERE id = ?`, [id],
+        ) as {
+          code: string; gls_number: string | null; name: string; event_start: string | null; event_end: string | null;
+          box_url_internal: string | null; box_url_external: string | null;
+        };
+        const folders = await createProjectFolderTree(created);
         const updates: string[] = [];
         const params: unknown[] = [];
         if (!created.box_url_internal && folders.internal) {
@@ -1708,25 +1703,12 @@ export class ProjectService {
       );
     }
 
-    // 案件名変更を BOX 両フォルダ (社内限り / 社外共有可) に並行反映 (非ブロッキング)
-    if (typeof name === 'string' && name && name !== existing.name) {
-      try {
-        const internalFolderId = extractFolderId(existing.box_url_internal as string | null);
-        const externalFolderId = extractFolderId(existing.box_url_external as string | null);
-        if (internalFolderId || externalFolderId) {
-          const newFolderName = buildProjectFolderName({
-            gls_number: existing.gls_number as string | null,
-            code: existing.code as string,
-            name,
-          });
-          await renameProjectFolderPair(internalFolderId, externalFolderId, newFolderName);
-        }
-      } catch (err) {
-        console.warn('[update] BOX folder rename failed (non-blocking):', (err as Error).message);
-      }
-    }
-
     const saved = await this.getById(id) as Record<string, unknown>;
+
+    // 案件名・実施日の変更を BOX 両フォルダ (社内限り / 社外共有可) の名前に反映 (非ブロッキング)
+    if (['name', 'event_start', 'event_end'].some((k) => (saved[k] ?? null) !== (existing[k] ?? null))) {
+      await syncProjectFolderNameSafe(id);
+    }
     // AI が起票した案件を人が直したら、**どこを直したか**を残す (会社方針の条件2)。
     // 起票から7日以内の更新だけを見る — 窓を切らないと数ヶ月後の通常の業務更新まで
     // 「AI の誤り」として数えられ、修正率が意味のない数字になる
@@ -2158,19 +2140,15 @@ export class ProjectService {
     try {
       const internalFolderId = extractFolderId(project.box_url_internal as string | null);
       const externalFolderId = extractFolderId(project.box_url_external as string | null);
-      const newFolderName = buildProjectFolderName({
-        gls_number: glsNumber,
-        code: project.code as string,
-        name: project.name as string,
-      });
 
+      // 既にある側は番号の部分を付け直す（名前の組み立ては `buildProjectFolderName` だけが持つ）
       if (internalFolderId || externalFolderId) {
-        await renameProjectFolderPair(internalFolderId, externalFolderId, newFolderName);
+        await syncProjectFolderNameSafe(id);
       }
 
       // 未作成の側を補填 (両方未作成のケースも含む)
       if (!internalFolderId || !externalFolderId) {
-        const folders = await createProjectFolderTree(glsNumber, project.name as string);
+        const folders = await createProjectFolderTree({ ...project, gls_number: glsNumber });
         const updates: string[] = [];
         const params: unknown[] = [];
         if (!internalFolderId && folders.internal) {
@@ -2304,20 +2282,7 @@ export class ProjectService {
     );
 
     // BOX 両フォルダのリネーム (非ブロッキング)
-    try {
-      const internalFolderId = extractFolderId(project.box_url_internal as string | null);
-      const externalFolderId = extractFolderId(project.box_url_external as string | null);
-      if (internalFolderId || externalFolderId) {
-        const newFolderName = buildProjectFolderName({
-          gls_number: newGlsNumber,
-          code: project.code as string,
-          name: project.name as string,
-        });
-        await renameProjectFolderPair(internalFolderId, externalFolderId, newFolderName);
-      }
-    } catch (err) {
-      console.warn('[changeGlsCategory] BOX folder rename failed (non-blocking):', (err as Error).message);
-    }
+    await syncProjectFolderNameSafe(id);
 
     return this.getById(id);
   }
@@ -2497,8 +2462,7 @@ export class ProjectService {
       throw new AppError(503, 'BOX_NOT_CONFIGURED', 'BOX 連携が未設定です');
     }
 
-    const idCode = (project.gls_number as string | null) || (project.code as string);
-    const folders = await createProjectFolderTree(idCode, project.name as string);
+    const folders = await createProjectFolderTree(project);
 
     const newInternal = existingInternal || (folders.internal?.folderUrl ?? null);
     const newExternal = existingExternal || (folders.external?.folderUrl ?? null);
@@ -2614,17 +2578,7 @@ export class ProjectService {
     }
 
     // 3. BOX 両フォルダのリネーム (非ブロッキング)
-    try {
-      const internalFolderId = extractFolderId(project.box_url_internal as string | null);
-      const externalFolderId = extractFolderId(project.box_url_external as string | null);
-      if (internalFolderId || externalFolderId) {
-        await renameProjectFolderPair(internalFolderId, externalFolderId, buildProjectFolderName({
-          gls_number: newGls, code: project.code as string, name: project.name as string,
-        }));
-      }
-    } catch (err) {
-      console.warn('[relinkGls] BOX folder rename failed:', (err as Error).message);
-    }
+    await syncProjectFolderNameSafe(id);
 
     // 4. 概算見積を確定売上に変換 (残っていれば)
     await this.migrateEstimates(id, newGls);

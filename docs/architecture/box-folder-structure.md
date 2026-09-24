@@ -1,20 +1,23 @@
 # BOXフォルダ構造 (案件ごと)
 
 > **状態**: 実装済み（記録）— 下の図はルート `CLAUDE.md` にあった当初案。**いまの構成の正はコード**（下表）
-> **最終確認**: 2026-09-08（v4.6.10） — `server/src` の `BOX_PROJECT_PARENT_FOLDER_ID` の読み手と `.env.example` で確認した
+> **最終確認**: 2026-09-24 — フォルダ名の頭に実施日を付けた（`box-folder.service.ts` の `buildProjectFolderName`・`box-folder-name.service.ts`）
 > **位置づけ**: 案件・プロジェクトごとの BOX フォルダを「どこに・いつ・どんな名前で」作るかの一覧。ルート `CLAUDE.md` から参照される。
 
 ## いまの実装（正はコード）
 
 | 対象 | 作るところ | いつ作るか |
 | --- | --- | --- |
-| 案件（GLS-A） | `server/src/contexts/sales/services/box-folder.service.ts` | 案件の作成直後に自動で作る。案件名の変更で改名し、発番で `OPP-…` → 管理番号に改名する。`POST /projects/:id/create-box-folder` で未作成分を手で補える |
+| 案件（GLS-A） | `server/src/contexts/sales/services/box-folder.service.ts` | 案件の作成直後に自動で作る。`POST /projects/:id/create-box-folder` で未作成分を手で補える |
+| 案件フォルダの改名 | `server/src/contexts/sales/services/box-folder-name.service.ts` | 案件名・実施日・番号（発番・改番）が変わったらその場で付け直す。最後に合わせた名前を `projects.box_folder_name`（migration 310）に持ち、取りこぼしと既存フォルダは日次ジョブが拾う |
 | プロジェクト管理（GPM） | `server/src/contexts/gpm/services/gpm-box-folder.service.ts` | **押したときだけ**作る（作成の流れでは作らない。BOX のフォルダはアプリから消せないため） |
 | メール取込の添付 | `server/src/shared/services/mail-attachment-box.service.ts` | 案件フォルダの親の下に置く |
 | 失注案件の片づけ | `server/src/contexts/sales/services/box-lost-cleanup.service.ts` | 上の命名規則で作った実物だけを対象にする |
 
 - 親フォルダは**2つ**。`BOX_PROJECT_PARENT_FOLDER_ID_INTERNAL`（社内限り）と `BOX_PROJECT_PARENT_FOLDER_ID`（社外共有可）を `.env` に入れる（`.env.example`）。片方だけ設定するとそちらだけ動く。
-- フォルダ名は `【社内】{管理番号または案件コード}_{案件名}` と `【社外】…` の対。
+- フォルダ名は `【社内】{実施日}_{管理番号または案件コード}_{案件名}` と `【社外】…` の対（2026-09-24〜。それまでは実施日なし）。
+  - 実施日を頭に置くのは、BOX の名前順をそのまま実施日順にするため。形は `2026.12.03`（`/` は BOX で使えない）。複数日は `2026.12.03-12.05`、年をまたぐなら `2026.12.31-2027.01.02`、実施日が無ければ `未定`（数字より後ろに並ぶ）
+  - 付け直すのは**名前にその案件の番号が入っているフォルダだけ**。プロジェクト管理のフォルダ（案件名だけ）や人が付けた名前には触らない
 - 案件のサブフォルダ: 社内限り＝ `02_発注・契約` `03_請求` `07_原価・利益管理`。社外共有可＝ `01_見積・提案` `04_Qシート` `05_台本・進行表` `06_納品物` `08_写真`。
 - GPM のサブフォルダは別構成。社内限り＝ `02_原価・発注` `03_請求`。社外共有可＝ `01_見積・提案` `03_議事メモ` `04_図面` `05_仕様書` `06_工程表`。
 - BOX 障害時は throw せず警告ログだけ残す（案件の作成・発番を止めない）。
