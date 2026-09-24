@@ -7,7 +7,7 @@ import { Row, RowMain, RowSlot } from "@gmo-onair/shared/src/client/ui/row";
 import BufferedInput from "@/components/editor/BufferedInput";
 import type { PatchDeviceOption, TechPatchRow } from "@gmo-onair/shared/src/tech/types";
 import { jackChoicesFor, type JackChoice, type PanelKinds } from "./patchDerive";
-import { usePopoverDismiss } from "./patchPopover";
+import { FloatingPanel, usePopoverDismiss } from "./patchPopover";
 import { DevicePicker } from "./DevicePicker";
 import { JackPicker } from "./JackPicker";
 
@@ -41,7 +41,7 @@ export function PatchRow({ row, no, rows, devices, kinds, canEdit, onPatch, onDu
     <Row density="table" divider className="gap-2 hover:bg-surface-subtle">
       <div className="num w-8 shrink-0 text-sub text-muted-foreground">{no}</div>
 
-      <RowSlot w={128}>
+      <RowSlot w={160}>
         <DevicePicker
           deviceName={row.from_device_text} isExtra={row.from_is_extra} devices={devices} kinds={kinds}
           disabled={disabled} side="from"
@@ -65,7 +65,7 @@ export function PatchRow({ row, no, rows, devices, kinds, canEdit, onPatch, onDu
         <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" aria-hidden="true" />
       </div>
 
-      <RowSlot w={128}>
+      <RowSlot w={160}>
         <DevicePicker
           deviceName={row.to_device_text} isExtra={row.to_is_extra} devices={devices} kinds={kinds}
           disabled={disabled} side="to"
@@ -114,7 +114,8 @@ function RowMenu({ canEdit, onDuplicate, onDelete, onMove }: {
 }) {
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
-  usePopoverDismiss(boxRef, open, () => setOpen(false));
+  const panelRef = useRef<HTMLDivElement>(null);
+  usePopoverDismiss([boxRef, panelRef], open, () => setOpen(false));
   const item = "flex h-9 w-full items-center px-3 text-left text-sub text-foreground hover:bg-muted/30";
 
   return (
@@ -127,7 +128,7 @@ function RowMenu({ canEdit, onDuplicate, onDelete, onMove }: {
         <MoreHorizontal className="h-3.5 w-3.5" aria-hidden="true" />
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-20 mt-1 w-40 overflow-hidden rounded-card border border-border bg-card py-1 shadow-lg">
+        <FloatingPanel anchorRef={boxRef} panelRef={panelRef} align="right" width={160} className="py-1">
           <button type="button" className={item} onClick={() => { onDuplicate(); setOpen(false); }}>複製する</button>
           <button type="button" className={item} onClick={() => { onMove(-1); setOpen(false); }}>1つ上へ</button>
           <button type="button" className={item} onClick={() => { onMove(1); setOpen(false); }}>1つ下へ</button>
@@ -138,7 +139,7 @@ function RowMenu({ canEdit, onDuplicate, onDelete, onMove }: {
           >
             削除
           </button>
-        </div>
+        </FloatingPanel>
       )}
     </div>
   );

@@ -62,10 +62,10 @@ export function PatchTable({ rows, devices, panels, canEdit, onCreate, onUpdate,
       {/* 見出しは2段。上が「送り／受け」の区切り、下が列の名前 */}
       <Row density="table" className="h-5 gap-2 bg-surface-subtle py-0 text-th">
         <div className="w-8 shrink-0" />
-        <RowSlot w={128} placeholder=""><span className="text-primary">送り（出力側）</span></RowSlot>
+        <RowSlot w={160} placeholder=""><span className="text-primary">送り（出力側）</span></RowSlot>
         <RowSlot w={72} placeholder="" />
         <div className="w-6 shrink-0" />
-        <RowSlot w={128} placeholder=""><span className="text-success">受け（入力側）</span></RowSlot>
+        <RowSlot w={160} placeholder=""><span className="text-success">受け（入力側）</span></RowSlot>
         <RowSlot w={72} placeholder="" />
         <RowMain className="min-w-[128px]" />
         <RowSlot w={96} placeholder="" />
@@ -73,10 +73,10 @@ export function PatchTable({ rows, devices, panels, canEdit, onCreate, onUpdate,
       </Row>
       <RowHeader className="gap-2">
         <div className="num w-8 shrink-0">#</div>
-        <RowSlot w={128} placeholder="">機材・端子盤</RowSlot>
+        <RowSlot w={160} placeholder="">機材・端子盤</RowSlot>
         <RowSlot w={72} placeholder="">パッチ番号</RowSlot>
         <div className="w-6 shrink-0" />
-        <RowSlot w={128} placeholder="">機材・端子盤</RowSlot>
+        <RowSlot w={160} placeholder="">機材・端子盤</RowSlot>
         <RowSlot w={72} placeholder="">パッチ番号</RowSlot>
         <RowMain className="min-w-[128px]">名称</RowMain>
         <RowSlot w={96} placeholder="">備考</RowSlot>
