@@ -1,1 +1,0 @@
-**PR #742（やり取りの AI 整形に節を足した）が、Codex の利用上限で Code Review が走らないままマージされたことを棚卸しに記録した。** Security Review は指摘なしで完了し CI も緑だったが、画面上は「指摘なし」と見分けが付かないため `docs/reviews/codex-findings-v4.md` の「レビューが0件のままマージされた PR」に足し、次に Codex が走る PR でこの差分も読ませるよう書いた。検証: `node scripts/check-md-links.mjs`・`node scripts/check-changelog.mjs`。
