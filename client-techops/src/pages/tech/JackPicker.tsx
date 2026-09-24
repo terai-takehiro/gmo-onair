@@ -7,7 +7,7 @@ import { Check } from "lucide-react";
 import BufferedInput from "@/components/editor/BufferedInput";
 import { notifyInfo } from "@/lib/notify";
 import type { JackChoice } from "./patchDerive";
-import { usePopoverDismiss } from "./patchPopover";
+import { FloatingPanel, usePopoverDismiss } from "./patchPopover";
 
 interface Props {
   /** いま入っているパッチ番号（増設機材のときは端子名） */
@@ -28,7 +28,8 @@ export function JackPicker({
 }: Props) {
   const [open, setOpen] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
-  usePopoverDismiss(boxRef, open, () => setOpen(false));
+  const panelRef = useRef<HTMLDivElement>(null);
+  usePopoverDismiss([boxRef, panelRef], open, () => setOpen(false));
 
   const label = side === "from" ? "送りのパッチ番号" : "受けのパッチ番号";
 
@@ -64,12 +65,12 @@ export function JackPicker({
         {jackText || "—"}
       </button>
       {open && (
-        <div className="absolute right-0 top-full z-20 mt-1 w-72 overflow-hidden rounded-card border border-border bg-card shadow-lg">
-          <div className="flex h-8 items-center gap-2 border-b border-border-faint bg-surface-subtle px-3">
+        <FloatingPanel anchorRef={boxRef} panelRef={panelRef} align="right" width={288}>
+          <div className="flex h-8 shrink-0 items-center gap-2 border-b border-border-faint bg-surface-subtle px-3">
             <span className="min-w-0 flex-1 truncate text-th text-foreground">{deviceName}</span>
             <span className="num shrink-0 text-sub-sm text-muted-foreground">{choices.length}ch</span>
           </div>
-          <div className="max-h-64 overflow-y-auto">
+          <div className="max-h-80 min-h-0 flex-1 overflow-y-auto">
             {choices.length === 0 && (
               <p className="px-3 py-3 text-sub text-muted-foreground">
                 この機材にはパッチ番号がありません。パッチ盤で転記してください。
@@ -110,7 +111,7 @@ export function JackPicker({
               </button>
             ))}
           </div>
-          <div className="flex items-center justify-between gap-2 border-t border-border px-3 py-2">
+          <div className="flex shrink-0 items-center justify-between gap-2 border-t border-border px-3 py-2">
             <span className="text-sub-sm text-muted-foreground">空いているパッチ番号を先に表示しています</span>
             {jackId && (
               <button
@@ -122,7 +123,7 @@ export function JackPicker({
               </button>
             )}
           </div>
-        </div>
+        </FloatingPanel>
       )}
     </div>
   );

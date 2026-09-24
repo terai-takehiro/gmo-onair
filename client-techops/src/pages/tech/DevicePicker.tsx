@@ -3,12 +3,12 @@
 // 増設機材を選んだセルは自由入力になり、右に「増設」の印が出る（PatchRowExtras.tsx）。
 // 名称に TRK が付く系統（AV-1〜AV-9・SW-CP など）は機材ではなく端子盤として、候補の最後にまとめ、
 // 選んだセルには「端子盤」の印を出す（patchDerive.ts の isTerminalDevice）。
-import { useRef, useState } from "react";
+import { useRef, useState, type RefObject } from "react";
 import { Check, ChevronDown, Plus, Search } from "lucide-react";
 import BufferedInput from "@/components/editor/BufferedInput";
 import type { PatchDeviceOption } from "@gmo-onair/shared/src/tech/types";
 import { deviceSubLabel, groupDevices, isTerminalDevice, type PanelKinds } from "./patchDerive";
-import { usePopoverDismiss } from "./patchPopover";
+import { FloatingPanel, usePopoverDismiss } from "./patchPopover";
 import { ExtraTag, TerminalTag } from "./PatchRowExtras";
 
 interface Props {
@@ -31,7 +31,8 @@ export function DevicePicker({
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const boxRef = useRef<HTMLDivElement>(null);
-  usePopoverDismiss(boxRef, open, () => setOpen(false));
+  const panelRef = useRef<HTMLDivElement>(null);
+  usePopoverDismiss([boxRef, panelRef], open, () => setOpen(false));
 
   const groups = groupDevices(devices, query);
   const typed = query.trim();
@@ -61,6 +62,7 @@ export function DevicePicker({
         </button>
         {open && (
           <DeviceList
+            anchorRef={boxRef} panelRef={panelRef}
             groups={groups} kinds={kinds} query={query} typed={typed} deviceName={deviceName}
             onQuery={setQuery}
             onPickDevice={(d) => { onPickDevice(d); setOpen(false); setQuery(""); }}
@@ -89,6 +91,7 @@ export function DevicePicker({
       </button>
       {open && (
         <DeviceList
+          anchorRef={boxRef} panelRef={panelRef}
           groups={groups} kinds={kinds} query={query} typed={typed} deviceName={deviceName}
           onQuery={setQuery}
           onPickDevice={(d) => { onPickDevice(d); setOpen(false); setQuery(""); }}
@@ -100,8 +103,10 @@ export function DevicePicker({
 }
 
 function DeviceList({
-  groups, kinds, query, typed, deviceName, onQuery, onPickDevice, onPickExtra,
+  anchorRef, panelRef, groups, kinds, query, typed, deviceName, onQuery, onPickDevice, onPickExtra,
 }: {
+  anchorRef: RefObject<HTMLDivElement | null>;
+  panelRef: RefObject<HTMLDivElement>;
   groups: ReturnType<typeof groupDevices>;
   kinds: PanelKinds;
   query: string;
@@ -111,15 +116,25 @@ function DeviceList({
   onPickDevice: (d: PatchDeviceOption) => void;
   onPickExtra: (name: string) => void;
 }) {
+  // Enter で先頭の候補を選ぶ。候補が無ければ入力した名前を増設機材にする
+  const pickFirst = () => {
+    const first = groups[0]?.items[0];
+    if (first) onPickDevice(first);
+    else if (typed) onPickExtra(typed);
+  };
+
   return (
-    <div className="absolute left-0 top-full z-20 mt-1 w-80 overflow-hidden rounded-card border border-border bg-card shadow-lg">
-      <div className="p-2">
+    <FloatingPanel anchorRef={anchorRef} panelRef={panelRef} width={320}>
+      <div className="shrink-0 p-2">
         <div className="flex h-9 items-center gap-2 rounded-control border border-primary-border bg-primary-surface px-2.5">
           <Search className="h-3.5 w-3.5 shrink-0 text-primary" aria-hidden="true" />
           {/* 1文字ごとに絞り込む（BufferedInput は確定するまで値を渡さないので、検索には使わない） */}
           <input
             value={query}
             onChange={(e) => onQuery(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.nativeEvent.isComposing) { e.preventDefault(); pickFirst(); }
+            }}
             autoFocus
             aria-label="機材・端子盤の名前で検索"
             placeholder="機材・端子盤の名前で検索"
@@ -127,7 +142,7 @@ function DeviceList({
           />
         </div>
       </div>
-      <div className="max-h-64 overflow-y-auto">
+      <div className="max-h-80 min-h-0 flex-1 overflow-y-auto">
         {groups.length === 0 && (
           <p className="px-3 py-3 text-sub text-muted-foreground">
             この名前の機材・端子盤はパッチ盤にありません。下の「増設機材として手入力」で入力してください。
@@ -159,7 +174,7 @@ function DeviceList({
         type="button"
         disabled={!typed}
         onClick={() => onPickExtra(typed)}
-        className="flex h-11 w-full items-center gap-2 border-t border-border px-3 text-left hover:bg-warning-surface disabled:opacity-50"
+        className="flex h-11 w-full shrink-0 items-center gap-2 border-t border-border px-3 text-left hover:bg-warning-surface disabled:opacity-50"
       >
         <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-badge bg-warning-surface">
           <Plus className="h-3 w-3 text-warning" aria-hidden="true" />
@@ -168,6 +183,6 @@ function DeviceList({
           増設機材として手入力{typed ? `: ${typed}` : ""}
         </span>
       </button>
-    </div>
+    </FloatingPanel>
   );
 }
