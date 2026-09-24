@@ -137,3 +137,52 @@ describe('activityStructLength', () => {
     expect(activityStructLength(s)).toBe(8);
   });
 });
+
+/*
+ * 会話ではない記録の節（v4.7.1）。社内メモ（シフト表・体制案）は `turns` に置き場が無く、
+ * `lead` と `facts` に押し込まれて中身がほとんど落ちていた（利用者からのご指摘）。
+ */
+describe('sections（会話ではない記録の節）', () => {
+  const memo = {
+    subject: '27時間テレビ体制想定',
+    lead: '拘束時間・本番シフト・各拠点の技術構成を整理。',
+    turns: [],
+    sections: [
+      { heading: '拘束時間', items: ['22日 日中終日（セット・リハーサル）', '23日 日中〜24日23時ごろまで想定'] },
+      { heading: 'ベーススタジオ 第1班', items: ['19:00 - 20:00 オープニング', '20:00 - 22:00 スタンバイ'] },
+    ],
+  };
+
+  it('見出しと行をそのまま通す', () => {
+    const s = normalizeActivityStruct(memo)!;
+    expect(s.sections).toEqual(memo.sections);
+    expect(s.turns).toEqual([]);
+  });
+
+  it('節だけでも通す（lead も turns も無い予定表）', () => {
+    const s = normalizeActivityStruct({ sections: memo.sections })!;
+    expect(s).not.toBeNull();
+    expect(s.sections).toHaveLength(2);
+  });
+
+  it('行の無い節・文字列でない行は捨てる（見出しだけを並べない）', () => {
+    const s = normalizeActivityStruct({
+      lead: 'x',
+      sections: [
+        { heading: '空の節', items: [] },
+        { heading: '混ざった節', items: ['CAM×6（Z300クラス）', { a: 1 }, '', 3] },
+        'こわれた節',
+      ],
+    })!;
+    expect(s.sections).toEqual([{ heading: '混ざった節', items: ['CAM×6（Z300クラス）'] }]);
+  });
+
+  it('sections の無い古い行は空配列（画面が読める）', () => {
+    expect(normalizeActivityStruct(full)!.sections).toEqual([]);
+  });
+
+  it('節の文字数も数える（長いメモが「薄い」と判定されないように）', () => {
+    const s = normalizeActivityStruct({ sections: [{ heading: 'ab', items: ['123', '45'] }] })!;
+    expect(activityStructLength(s)).toBe(7);
+  });
+});

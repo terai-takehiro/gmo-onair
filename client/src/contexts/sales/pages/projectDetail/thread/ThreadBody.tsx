@@ -149,6 +149,29 @@ function Turn({ t }: { t: ActivityTurn }) {
   );
 }
 
+/**
+ * 会話ではない記録の節（社内メモ・予定表・体制案）。**見出しは節見出しの段、行は1行ずつ**。
+ * 時刻や人数が行頭に並ぶことが多いので、行は折り返しても左端をそろえる（`list-none` ＋ 字下げなし）
+ */
+function Sections({ items }: { items: ActivityStruct['sections'] }) {
+  return (
+    <div className="mt-3.5 flex flex-col gap-3">
+      {items.map((sec, i) => (
+        <section key={`${sec.heading}-${i}`}>
+          {sec.heading && <p className="v4-eyebrow text-muted-foreground">{sec.heading}</p>}
+          <ul className="mt-1 flex flex-col gap-0.5">
+            {sec.items.map((line, j) => (
+              <li key={j} className="text-sub break-words text-secondary-foreground">
+                <InlineText text={line} />
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
+    </div>
+  );
+}
+
 /** 本文（3段の落ち先を1か所にまとめた）。**順番を変えないこと** */
 export function ThreadBody({ a, s }: { a: ActivityLog; s: ActivityStruct | null }) {
   if (s) {
@@ -168,6 +191,7 @@ export function ThreadBody({ a, s }: { a: ActivityLog; s: ActivityStruct | null 
             </div>
           </>
         )}
+        {s.sections.length > 0 && <Sections items={s.sections} />}
       </>
     );
   }

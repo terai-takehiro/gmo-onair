@@ -188,6 +188,16 @@ describe('body_struct → 素のテキスト（発言者名を落とさない）
     expect(t).toContain('当社 寺井');
   });
 
+  it('会話ではない記録の節も1行も落とさない（見出しと `- ` の行）', () => {
+    const t = textFromActivityStruct({
+      lead: '体制案',
+      sections: [{ heading: 'ベーススタジオ 第1班', items: ['19:00 - 20:00 オープニング', 'CAM×6（Z300クラス）'] }],
+    });
+    expect(t).toContain('ベーススタジオ 第1班');
+    expect(t).toContain('- 19:00 - 20:00 オープニング');
+    expect(t).toContain('- CAM×6（Z300クラス）');
+  });
+
   it('読めない構造は空文字（呼ぶ側は `body_html` → 原文に落ちる）', () => {
     expect(textFromActivityStruct(null)).toBe('');
     expect(textFromActivityStruct({ v: 1 })).toBe('');
