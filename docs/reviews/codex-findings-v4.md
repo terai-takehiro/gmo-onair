@@ -820,6 +820,9 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   作成 09:52 / CI（checks・build）緑 09:54 / Security Review 完了（`41fe5cb`・指摘なし）09:56 / マージ 09:58。開いていたのは約6分で、
   Code Review は付く前にマージされた（利用上限のコメントも無し）。migration 310（`projects.box_folder_name`）・日次ジョブで既存の BOX フォルダを
   改名する PR なので、**次に Codex が走る PR で `box-folder-name.service.ts`・`box-folder.service.ts`・`box-lost-cleanup.service.ts` の差分も読ませること**
+- **#746**（`release: v4.7.2`・2026-09-24）— **Code Review が1巡も走らないままマージした版上げの PR**。作成直後に
+  「You have reached your Codex usage limits for code reviews.」が付いた（#745 で Code Review が付かなかったのも同じ上限の可能性が高い）。
+  差分は版の3か所・`docs/version-history.md`・この文書だけで、コードの変更は無い。表に移す指摘は無い（Code Review 自体が届いていないため）
 - **#251**（`feat(sales): 取引先マスターをv4に作り直し、権限バグ2件を修正`）— 作成から
   約1分でCI green・自動マージ。レビュー0件のままマージされた
 - **#252**（`fix(sales): 取引先名を2行折り返しに変更・タブレット幅の崩れを修正`）— 作成から
