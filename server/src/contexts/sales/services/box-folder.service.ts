@@ -3,11 +3,13 @@
  *
  * 案件 (project) 用 BOX フォルダ階層を「社内限り」「社外共有可」の 2 親フォルダに並行作成する。
  *
+ * フォルダ名は `{実施日}_{管理番号 or 案件コード}_{案件名}`（`buildProjectFolderName`）。
+ * 実施日を先頭に置くのは、BOX の名前順がそのまま実施日順になるため（ご依頼 2026-09-24）。
+ *
  * 呼び出し元 (project.service.ts):
- *   - create() 直後: 両親フォルダに {OPP-code}_{案件名} を作成
- *   - update() で name 変更検出時: 両フォルダを並行リネーム
- *   - issueGls() 直後: 両フォルダの ID 部分を OPP-code → GLS-number に置換
+ *   - create() 直後: 両親フォルダに作成
  *   - 手動エンドポイント /projects/:id/create-box-folder: 両フォルダのうち未作成のものを補填
+ * 作ったあとの改名（案件名・実施日・番号が変わったとき）は `box-folder-name.service.ts`。
  *
  * 失敗時は throw せず warning ログ + null 返却で握り潰す方針
  * (BOX 障害で案件作成 / GLS 発番自体が失敗しないようにする)。
@@ -49,6 +51,57 @@ const EXTERNAL_SUBFOLDERS = [
 ];
 
 export type CustomerType = 'internal' | 'external';
+
+/** フォルダ名を組み立てるのに使う案件の値 */
+export interface ProjectFolderNaming {
+  gls_number?: string | null;
+  code?: string | null;
+  name?: string | null;
+  /** `YYYY-MM-DD`（古い行は時刻付き・空文字もある） */
+  event_start?: string | null;
+  event_end?: string | null;
+}
+
+/** 実施日が入っていない案件の頭。**数字より後ろに並ぶ**ので、日付入りの下にまとまる */
+export const UNDATED_FOLDER_LABEL = '未定';
+
+function ymdParts(value: string | null | undefined): [string, string, string] | null {
+  const m = String(value ?? '').match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? [m[1], m[2], m[3]] : null;
+}
+
+/**
+ * フォルダ名の頭の実施日（純関数）。
+ *   1日        → `2026.12.03`
+ *   複数日     → `2026.12.03-12.05`（年をまたぐときは `2026.12.31-2027.01.02`）
+ *   日付が無い → `未定`
+ *
+ * ⚠️ **年を省かない。** 頭に置くので並び順は日付で決まり、月日だけだと
+ * 年明けの案件（`01.10`）が前の年の12月より上に来る。
+ * ⚠️ **`/` は使えない**（BOX のフォルダ名に使えず `sanitizeFolderName` が消す）。
+ */
+export function formatFolderDate(start: string | null | undefined, end: string | null | undefined): string {
+  const s = ymdParts(start);
+  if (!s) return UNDATED_FOLDER_LABEL;
+  const head = s.join('.');
+  const e = ymdParts(end);
+  // 終了が無い・同じ日・開始より前（逆さまの行）は1日として扱う
+  if (!e || e.join('.') <= head) return head;
+  return e[0] === s[0] ? `${head}-${e[1]}.${e[2]}` : `${head}-${e.join('.')}`;
+}
+
+/**
+ * 案件フォルダの名前（頭の `【社内】`/`【社外】` を除いた部分）。**唯一の組み立て場所。**
+ * 番号は発番済みなら管理番号、未発番なら案件コード。
+ *
+ * ⚠️ `box-lost-cleanup.service.ts` の `expectedFolderNames` もこれを使う。
+ * 写すと、片方だけ形を変えた日に失注の片づけがこの形の名前を見分けられなくなる。
+ */
+export function buildProjectFolderName(p: ProjectFolderNaming): string {
+  const idCode = String(p.gls_number || p.code || '').trim();
+  const parts = [formatFolderDate(p.event_start, p.event_end), idCode, String(p.name ?? '').trim()];
+  return sanitizeFolderName(parts.filter((v) => v !== '').join('_'));
+}
 
 /**
  * BOX のファイル/フォルダ名で使えない文字を除去 (`/ \ : ? * | " < >`)
@@ -126,23 +179,21 @@ async function createOneFolderTree(
 
 /**
  * 案件向けの BOX フォルダ階層を「社内限り」「社外共有可」の両親フォルダに並行作成する。
- * @param idCode GLS 発番前なら OPP コード、発番後なら GLS 番号
- * @param projectName 例: "テレビ朝日 特番収録"
+ * @param project 名前の材料（`buildProjectFolderName`）
  * @returns 内部・外部それぞれの作成結果 (片方失敗・親未設定でも他方を進める)
  */
 export async function createProjectFolderTree(
-  idCode: string,
-  projectName: string,
+  project: ProjectFolderNaming,
 ): Promise<CreatedProjectFolderPair> {
+  const baseName = buildProjectFolderName(project);
   if (!isBoxConfigured()) {
-    console.log('[box-folder] BOX not configured — skipping folder creation for', idCode);
+    console.log('[box-folder] BOX not configured — skipping folder creation for', baseName);
     return { internal: null, external: null };
   }
 
   const client = getBoxClient();
   if (!client) return { internal: null, external: null };
 
-  const baseName = sanitizeFolderName(`${idCode}_${projectName}`);
   const internalParent = getInternalParentFolderId();
   const externalParent = getExternalParentFolderId();
 
@@ -167,44 +218,6 @@ export async function createProjectFolderTree(
   ]);
 
   return { internal, external };
-}
-
-/**
- * 既存の BOX フォルダ名を変更する。
- * 案件名変更 / GLS 発番時の ID 部分置換に使う。
- */
-export async function renameProjectFolder(
-  folderId: string,
-  newName: string,
-): Promise<{ folderUrl: string } | null> {
-  if (!isBoxConfigured()) return null;
-  const client = getBoxClient();
-  if (!client) return null;
-
-  const sanitized = sanitizeFolderName(newName);
-  try {
-    await client.folders.update(folderId, { name: sanitized });
-    console.log(`[box-folder] Renamed folder ${folderId} → '${sanitized}'`);
-    return { folderUrl: getBoxFolderUrl(folderId) };
-  } catch (err) {
-    console.warn(
-      `[box-folder] Failed to rename folder ${folderId} → '${sanitized}':`,
-      (err as Error).message,
-    );
-    return null;
-  }
-}
-
-/** 案件に紐づく両フォルダを並行リネーム (片方しかない場合は片方のみ) */
-export async function renameProjectFolderPair(
-  internalFolderId: string | null,
-  externalFolderId: string | null,
-  newName: string,
-): Promise<void> {
-  await Promise.all([
-    internalFolderId ? renameProjectFolder(internalFolderId, `${INTERNAL_PREFIX}${newName}`) : Promise.resolve(null),
-    externalFolderId ? renameProjectFolder(externalFolderId, `${EXTERNAL_PREFIX}${newName}`) : Promise.resolve(null),
-  ]);
 }
 
 /**

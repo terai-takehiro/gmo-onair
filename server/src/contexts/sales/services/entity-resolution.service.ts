@@ -25,19 +25,9 @@ import { AppError } from '../../../shared/middleware/errorHandler';
 import type { GlsCategory } from '../../../shared/services/sequence.service';
 import { getOrgTransition } from '../../platform/services/org-transition.service';
 import { getLegalEntity, type LegalEntityCode } from '../../platform/services/legal-entity.service';
-import { extractFolderId } from '../../../shared/services/box';
-import { renameProjectFolderPair } from './box-folder.service';
-
-/**
- * `project.service.ts` の同名関数と同一実装。**import せず複製する**——
- * 実測したところ `project.service.ts ⇄ entity-resolution.service.ts` の循環 import は
- * 一方の named export が解決されない実行時エラーを起こした（`tsx` で確認済み）。
- * 1行の関数を複製するほうが、循環 import の実行順に依存する壊れ方より安全。
- */
-function buildProjectFolderName(project: { gls_number?: string | null; code: string; name: string }): string {
-  const idCode = project.gls_number || project.code;
-  return `${idCode}_${project.name}`;
-}
+// フォルダ名の組み立ては `box-folder.service.ts` の `buildProjectFolderName` だけが持つ
+// （以前はここに複製があった。`box-folder-name.service.ts` は project.service を読まないので循環しない）
+import { syncProjectFolderName } from './box-folder-name.service';
 
 // ───────────────────────────────────────────────────────────
 // 実施日 — §4.4「event_start(=project_datesの最小日) → 回の最小recording_date →
@@ -256,14 +246,11 @@ export async function renumberProject(
   let boxRenamed = false;
   let boxReason: string | null = null;
   try {
-    const internalFolderId = extractFolderId(project.box_url_internal as string | null);
-    const externalFolderId = extractFolderId(project.box_url_external as string | null);
-    if (internalFolderId || externalFolderId) {
-      const newFolderName = buildProjectFolderName({
-        gls_number: newNumber, code: project.code as string, name: project.name as string,
-      });
-      await renameProjectFolderPair(internalFolderId, externalFolderId, newFolderName);
-      boxRenamed = true;
+    if (project.box_url_internal || project.box_url_external) {
+      const { outcome } = await syncProjectFolderName(projectId);
+      boxRenamed = outcome === 'renamed' || outcome === 'same' || outcome === 'checked';
+      if (outcome === 'retry') boxReason = 'BOXフォルダの付け替えに失敗しました';
+      if (outcome === 'off') boxReason = 'BOX連携が設定されていません';
     } else {
       boxReason = 'BOXフォルダがまだありません';
     }

@@ -42,6 +42,7 @@
  * 「スタジオの日程」の欄が戻るので、そこから直せます。
  */
 import { withTransaction } from '../../../shared/db/connection';
+import { syncProjectFolderNameSafe } from '../../sales/services/box-folder-name.service';
 
 /** 実施日として数える予約の種別。**画面側の同名の表と揃えること** */
 export const EVENT_BOOKING_TYPES = ['performance', 'rehearsal', 'hold'] as const;
@@ -119,7 +120,7 @@ export async function syncProjectEventDates(
 ): Promise<{ start: string; end: string } | null> {
   if (!projectId) return null;
 
-  return withTransaction(async (tx) => {
+  const changed = await withTransaction(async (tx) => {
     // **先に案件を掴む。** 同じ案件を同時に触った要求はここで順番待ちになる
     const project = await tx.queryOne(
       'SELECT event_start, event_end FROM projects WHERE id = ? AND deleted_at IS NULL FOR UPDATE',
@@ -153,4 +154,12 @@ export async function syncProjectEventDates(
     );
     return { start, end };
   });
+
+  /*
+   * **実施日が変わったら BOX のフォルダ名も付け直す**（名前の頭が実施日・2026-09-24〜）。
+   * 取引を閉じてから呼ぶ — BOX の応答待ちのあいだ案件の行を掴みっぱなしにしない。
+   * 失敗しても予約の保存は止めない（取りこぼしは日次ジョブが拾う）。
+   */
+  if (changed) await syncProjectFolderNameSafe(projectId);
+  return changed;
 }
