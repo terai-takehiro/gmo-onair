@@ -1,0 +1,1 @@
+**リリース PR #741（v4.7.0）が、Codex の利用上限で Code Review が走らないままマージされたことを棚卸しに記録した。** Security Review は指摘なしで完了し、CI も緑だったが、画面上は「指摘なし」と見分けが付かないため `docs/reviews/codex-findings-v4.md` の「レビューが0件のままマージされた PR」に足した（差分は版の表記と記録だけで、コードの変更は無い）。検証: `node scripts/check-md-links.mjs`・`node scripts/check-changelog.mjs`。

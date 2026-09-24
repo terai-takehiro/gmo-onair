@@ -27,6 +27,12 @@ export interface ActivityTurn {
   fields: { label: string; value: string }[];
 }
 
+/** 会話ではない記録の節（見出しと行）。サーバーの `ActivitySection` と対 */
+export interface ActivitySection {
+  heading: string;
+  items: string[];
+}
+
 export interface ActivityStruct {
   v: number;
   subtitle: string | null;
@@ -34,6 +40,8 @@ export interface ActivityStruct {
   facts: { icon: ActivityFactIcon; value: string }[];
   lead: string | null;
   turns: ActivityTurn[];
+  /** 古い行には無い（読むときに空配列にする） */
+  sections: ActivitySection[];
 }
 
 const TONES = new Set(['decided', 'waiting', 'risk', 'info']);
@@ -113,8 +121,17 @@ export function readActivityStruct(raw: unknown): ActivityStruct | null {
     .filter((x): x is { icon: ActivityFactIcon; value: string } => !!x);
 
   const turns = list(s.turns).map(readTurn).filter((t): t is ActivityTurn => !!t);
+  const sections = list(s.sections)
+    .map((x) => {
+      if (!x || typeof x !== 'object' || Array.isArray(x)) return null;
+      const it = x as Record<string, unknown>;
+      const items = list(it.items).map(str).filter((v): v is string => !!v);
+      // 行が1つも無い節は出さない（見出しだけ並ぶと、中身が落ちたことが見えなくなる）
+      return items.length ? { heading: str(it.heading) ?? '', items } : null;
+    })
+    .filter((x): x is ActivitySection => !!x);
   const lead = str(s.lead);
-  if (!lead && turns.length === 0) return null;
+  if (!lead && turns.length === 0 && sections.length === 0) return null;
 
   return {
     v: Number(s.v) || 1,
@@ -123,6 +140,7 @@ export function readActivityStruct(raw: unknown): ActivityStruct | null {
     facts,
     lead,
     turns,
+    sections,
   };
 }
 

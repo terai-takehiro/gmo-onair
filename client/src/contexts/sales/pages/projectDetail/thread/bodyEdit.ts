@@ -233,6 +233,12 @@ export function textFromActivityStruct(raw: unknown): string {
     if (t.note) lines.push(...t.note.split('\n'));
     for (const f of t.fields) lines.push(`- ${f.label}: ${f.value}`);
   }
+  // 会話ではない記録の節。見出しの行と、`- ` の箇条書き（保存すると `<ul>` になる）
+  for (const sec of s.sections) {
+    lines.push('');
+    if (sec.heading) lines.push(sec.heading);
+    for (const item of sec.items) lines.push(`- ${item}`);
+  }
   while (lines.length && !lines[0].trim()) lines.shift();
   while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
   return lines.join('\n');

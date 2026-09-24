@@ -50,8 +50,22 @@ export interface ActivityTurn {
   fields: { label: string; value: string }[];
 }
 
+/**
+ * 会話ではない記録の「節」— 見出し1つと、その下の行（v4.7.1）。
+ *
+ * 社内メモ（拘束時間・シフト表・拠点ごとの技術構成）は発言の往復ではないので、
+ * `turns` に置き場がありません。以前はそれを `lead` の1〜3文と `facts` 8件に押し込ませていて、
+ * **シフトの中身・拠点ごとの人数と機材がほとんど落ちていました**（利用者からのご指摘）。
+ * 原文の見出し（「<拘束時間>」「【ベーススタジオ】」など）ごとに、行を落とさず置きます。
+ */
+export interface ActivitySection {
+  heading: string;
+  /** 1行 = 1項目。**時刻・人数・機材名は原文のまま** */
+  items: string[];
+}
+
 export interface ActivityStruct {
-  /** 形の版。**上げたら画面側の読み取りも直すこと** */
+  /** 形の版。**上げたら画面側の読み取りも直すこと**（`sections` は足しただけで、無い行も読める） */
   v: 1;
   /** 件名の続き。件名は言い切りの短い部分だけを大きく出す */
   subtitle: string | null;
@@ -60,6 +74,8 @@ export interface ActivityStruct {
   /** 全体の1〜3文。`**強調**` を書いてよい（画面が `<strong>` にする） */
   lead: string | null;
   turns: ActivityTurn[];
+  /** 会話ではない記録の節（上の `ActivitySection`）。会話の記録では空配列 */
+  sections: ActivitySection[];
 }
 
 const TONES = new Set<string>(['decided', 'waiting', 'risk', 'info']);
@@ -101,6 +117,11 @@ const LIMITS = {
   fields: 12,
   fieldLabel: 16,
   fieldValue: 400,
+  // プロンプトは節を「多くて12」・1節の行を「多くて40」。長いメモ（20,000字まで）の柵
+  sections: 16,
+  heading: 60,
+  items: 60,
+  item: 300,
 };
 
 const str = (v: unknown, max: number): string | null => {
@@ -190,8 +211,13 @@ export function normalizeActivityStruct(raw: unknown): ActivityStruct | null {
     .filter((t): t is ActivityTurn => !!t)
     .slice(0, LIMITS.turns);
 
+  const sections = (Array.isArray(s.sections) ? s.sections : [])
+    .map(normalizeSection)
+    .filter((x): x is ActivitySection => !!x)
+    .slice(0, LIMITS.sections);
+
   const lead = str(s.lead, LIMITS.lead);
-  if (!lead && turns.length === 0) return null;
+  if (!lead && turns.length === 0 && sections.length === 0) return null;
 
   return {
     v: 1,
@@ -200,7 +226,20 @@ export function normalizeActivityStruct(raw: unknown): ActivityStruct | null {
     facts,
     lead,
     turns,
+    sections,
   };
+}
+
+/** 節1つ。**行が1つも無い節は捨てる**（見出しだけが並ぶと、中身が落ちたことが見えなくなる） */
+function normalizeSection(raw: unknown): ActivitySection | null {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return null;
+  const it = raw as Record<string, unknown>;
+  const items = (Array.isArray(it.items) ? it.items : [])
+    .map((x) => str(x, LIMITS.item))
+    .filter((x): x is string => !!x)
+    .slice(0, LIMITS.items);
+  if (items.length === 0) return null;
+  return { heading: str(it.heading, LIMITS.heading) ?? '', items };
 }
 
 /**
@@ -214,6 +253,10 @@ export function activityStructLength(s: ActivityStruct | null): number {
   for (const t of s.turns) {
     n += (t.quote ?? '').length + (t.note ?? '').length;
     n += t.fields.reduce((a, f) => a + f.label.length + f.value.length, 0);
+  }
+  // 古い行（`sections` が無い）も数えられるように `?? []`
+  for (const sec of s.sections ?? []) {
+    n += sec.heading.length + sec.items.reduce((a, x) => a + x.length, 0);
   }
   return n;
 }
