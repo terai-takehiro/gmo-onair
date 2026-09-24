@@ -812,6 +812,10 @@ grep -c '^| .* | ❓' docs/reviews/codex-findings-v4.md    # 未確認（読ん�
   作成直後に「You have reached your Codex usage limits for code reviews.」が付いた。Security Review だけは
   `4c1ee03` で完了（指摘なし）、CI（checks・build）は緑。差分は版の3か所・`docs/version-history.md`・この文書だけで、
   コードの変更は無い。表に移す指摘は無い（Code Review 自体が届いていないため）
+- **#742**（`fix(sales): やり取りの AI 整形で、社内メモの中身（シフト・体制・機材）が落ちていたのを直した`・2026-09-24）—
+  **Code Review が1巡も走らないままマージした PR**。作成直後に Codex の利用上限の返事が付き、Security Review だけが
+  `ff6fb84` で完了（指摘なし）。CI（checks・build）は緑。AI の整形の出力の形（`body_struct` に `sections`）・指示（`activity-v5`）・
+  画面の描き方を変えた PR なので、**次に Codex が走る PR で `activity-struct.ts`・`activity-ai.service.ts`・`thread/ThreadBody.tsx` の差分も読ませること**
 - **#251**（`feat(sales): 取引先マスターをv4に作り直し、権限バグ2件を修正`）— 作成から
   約1分でCI green・自動マージ。レビュー0件のままマージされた
 - **#252**（`fix(sales): 取引先名を2行折り返しに変更・タブレット幅の崩れを修正`）— 作成から
